@@ -1,0 +1,22 @@
+require('dotenv').config();
+
+const config = {
+  port: process.env.PORT || 5005,
+  openrouterApiKey: process.env.OPENROUTER_API_KEY || null,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
+  openaiApiKey: process.env.OPENAI_API_KEY || null,
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
+};
+
+// Structural checks for required API credentials
+console.log("=========================================");
+console.log("⚙️  CONFIG VALIDATION METRICS:");
+console.log("🌐 OPENROUTER API KEY:", config.openrouterApiKey ? "✅ FOUND" : "❌ NOT FOUND");
+console.log("🌐 ANTHROPIC API KEY :", config.anthropicApiKey ? "✅ FOUND" : "⚠️  MISSING (will fallback to OpenRouter)");
+console.log("🌐 OPENAI API KEY    :", config.openaiApiKey ? "✅ FOUND (Embeddings active)" : "⚠️  MISSING (Embedding logic will be skipped)");
+console.log("🌐 SUPABASE URL      :", config.supabaseUrl ? "✅ FOUND" : "❌ MISSING");
+console.log("🌐 SUPABASE KEY      :", config.supabaseServiceKey ? "✅ FOUND" : "❌ MISSING");
+console.log("=========================================");
+
+module.exports = config;
