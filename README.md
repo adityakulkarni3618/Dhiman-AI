@@ -1,0 +1,61 @@
+# Dhiman-AI
+
+Simple fullstack app with frontend/ (React) and backend/ (Node).
+
+## Project structure
+
+- frontend/: React front-end
+- backend/: Node back-end
+
+Key files:
+
+- [frontend/src/App.js](frontend/src/App.js)
+- [backend/server.js](backend/server.js)
+
+## Prerequisites
+
+- Node.js (16+ recommended)
+
+## Install
+
+Install dependencies for both apps:
+
+```bash
+cd frontend
+npm install
+
+cd ../backend
+npm install
+```
+
+## Run (development)
+
+Run frontend and backend in separate terminals:
+
+Frontend:
+
+```bash
+cd frontend
+npm start
+```
+
+Backend:
+
+```bash
+cd backend
+npm start
+```
+
+If `npm start` is defined for the backend, use `npm start` instead of `node server.js`.
+
+## Build (frontend)
+
+```bash
+cd frontend
+npm run build
+```
+
+## Notes
+
+- Edit the front-end in [frontend/src](frontend/src).
+- Edit the back-end in [backend](backend).
