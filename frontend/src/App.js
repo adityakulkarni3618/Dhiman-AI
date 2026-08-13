@@ -112,6 +112,7 @@ export default function App() {
 
   // Core Speech Synthesizer (Vocal Output Engine)
   const speakOutLoud = (textToSpeak) => {
+    if (!textToSpeak) return;
     // Clear out any running speech text to avoid queue overlaps
     window.speechSynthesis.cancel();
 
