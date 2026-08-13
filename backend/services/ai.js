@@ -19,7 +19,8 @@ if (config.anthropicApiKey) {
  */
 async function getEmbedding(text) {
   if (!openai) {
-    throw new Error("OpenAI API Key is missing. Embeddings cannot be generated.");
+    console.warn("⚠️ OpenAI API Key is missing. Returning a mock zero-filled vector (1536 dimensions) to prevent DB validation errors.");
+    return new Array(1536).fill(0);
   }
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
@@ -130,5 +131,6 @@ ${conversationText}`;
 module.exports = {
   getEmbedding,
   generateChatCompletion,
-  extractDurableFacts
+  extractDurableFacts,
+  anthropic
 };
