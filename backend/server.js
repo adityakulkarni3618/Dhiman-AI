@@ -22,12 +22,81 @@ registerSocketHandlers(io);
 
 // HTTP Endpoints
 
+// Tools specification compatible with Claude Tool Use API
+const tools = [
+  {
+    name: "get_current_datetime",
+    description: "Get the current date and time in ISO format.",
+    input_schema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "web_search",
+    description: "Search the web for up-to-date information on a given topic using Tavily Search API.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query term or phrase."
+        }
+      },
+      required: ["query"]
+    }
+  }
+];
+
+// Tool execution helper functions
+function getCurrentDateTime() {
+  const dt = new Date().toISOString();
+  console.log(`[TOOL CALL] get_current_datetime -> ${dt}`);
+  return dt;
+}
+
+async function executeWebSearch(query) {
+  console.log(`[TOOL CALL] web_search -> Query: "${query}"`);
+  if (!process.env.TAVILY_API_KEY) {
+    console.error("[TOOL ERROR] Tavily API Key is missing.");
+    return "Search failed: Tavily API key is missing on the server.";
+  }
+  try {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query: query,
+        search_depth: "basic",
+        include_answer: false
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    const results = (data.results || []).map(r => `- ${r.title}: ${r.content} (${r.url})`).join('\n');
+    const output = results || "No relevant search results found.";
+    console.log(`[TOOL RESULT] web_search -> Returned ${data.results?.length || 0} results.`);
+    return output;
+  } catch (error) {
+    console.error("[TOOL ERROR] Web search execution failed:", error.message);
+    return `Search failed: ${error.message}`;
+  }
+}
+
 // 1. Send chat completion (legacy/direct HTTP option)
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, conversationId } = req.body;
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Invalid request: message is required and must be a string.' });
+    }
+
+    const { anthropic } = require('./services/ai');
+    if (!anthropic) {
+      throw new Error("Anthropic client is not initialized. Please verify ANTHROPIC_API_KEY in your .env.");
     }
 
     const activeConversationId = await db.getOrCreateConversation(conversationId, message);
@@ -46,31 +115,90 @@ app.post('/api/chat', async (req, res) => {
       console.warn("Skipping memory lookup on HTTP chat endpoint:", embErr.message);
     }
 
-    const systemMessages = [
-      { role: 'system', content: 'You are Dhiman, a knowledgeable AI assistant for Aditya. Answer clearly and use long-term memory context when available.' }
-    ];
-
+    // Build system instructions
+    let systemContent = 'You are Dhiman, a knowledgeable AI assistant for Aditya. Answer clearly and use long-term memory context when available.';
     if (memoryFacts.length > 0) {
-      systemMessages.push({
-        role: 'system',
-        content: 'Long-term memory context:\n' + memoryFacts.map((fact, index) => `${index + 1}. ${fact.fact}`).join('\n')
+      systemContent += '\n\nLong-term memory context:\n' + memoryFacts.map((fact, index) => `${index + 1}. ${fact.fact}`).join('\n');
+    }
+
+    // Format conversation history for Claude Messages API (roles must alternate, no system role allowed)
+    const claudeMessages = [];
+    for (const msg of recentMessages) {
+      if (msg.role === 'system') continue;
+      claudeMessages.push({
+        role: msg.role,
+        content: msg.content
       });
     }
 
-    const conversationMessages = [
-      ...systemMessages,
-      ...recentMessages.map((msg) => ({ role: msg.role, content: msg.content }))
-    ];
+    let loopCount = 0;
+    let keepRunning = true;
+    let finalResponseText = '';
 
-    const modelResponse = await ai.generateChatCompletion({
-      messages: conversationMessages,
-      tools: [] // No tools over standard HTTP to keep it low-latency and simple
-    });
+    while (keepRunning && loopCount < 5) {
+      loopCount++;
+      console.log(`[CLAUDE LOOP] Requesting Claude completions (Turn ${loopCount})...`);
 
-    const replyText = modelResponse.content || '';
-    await db.saveMessage(activeConversationId, 'assistant', replyText);
+      const response = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-latest",
+        max_tokens: 1024,
+        system: systemContent,
+        messages: claudeMessages,
+        tools: tools
+      });
 
-    return res.json({ reply: replyText, conversationId: activeConversationId });
+      // Add assistant response to the active query history
+      claudeMessages.push({
+        role: "assistant",
+        content: response.content
+      });
+
+      // Save assistant response to DB
+      await db.saveMessage(activeConversationId, 'assistant', response.content);
+
+      // Check if Claude requested a tool use
+      const toolCalls = response.content.filter(block => block.type === 'tool_use');
+
+      if (toolCalls.length > 0) {
+        const toolResultBlocks = [];
+
+        for (const toolCall of toolCalls) {
+          const { id: toolUseId, name: toolName, input: toolInput } = toolCall;
+          console.log(`[CLAUDE LOOP] Executing tool: "${toolName}" with arguments: ${JSON.stringify(toolInput)}`);
+
+          let resultText = '';
+          if (toolName === 'get_current_datetime') {
+            resultText = getCurrentDateTime();
+          } else if (toolName === 'web_search') {
+            resultText = await executeWebSearch(toolInput.query);
+          } else {
+            resultText = `Error: Unknown tool "${toolName}"`;
+          }
+
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: toolUseId,
+            content: resultText
+          });
+        }
+
+        // Add tool results as a user response message to history
+        claudeMessages.push({
+          role: "user",
+          content: toolResultBlocks
+        });
+
+        // Save tool result message to DB
+        await db.saveMessage(activeConversationId, 'user', toolResultBlocks);
+
+      } else {
+        keepRunning = false;
+        const textBlock = response.content.find(block => block.type === 'text');
+        finalResponseText = textBlock ? textBlock.text : '';
+      }
+    }
+
+    return res.json({ reply: finalResponseText, conversationId: activeConversationId });
   } catch (error) {
     console.error('Chat endpoint error:', error);
     const status = error?.statusCode || 500;
