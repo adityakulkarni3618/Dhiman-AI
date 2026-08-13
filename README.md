@@ -59,3 +59,13 @@ npm run build
 
 - Edit the front-end in [frontend/src](frontend/src).
 - Edit the back-end in [backend](backend).
+
+## Database Configuration
+
+This project persists chat sessions and memories locally using **MongoDB**.
+
+1. **Prerequisite**: Ensure a local MongoDB instance is running (usually on `mongodb://localhost:27017`).
+2. **Environment**: Create or edit `backend/.env` and define:
+   ```env
+   MONGODB_URI=mongodb://localhost:27017/dhiman_ai
+   ```
