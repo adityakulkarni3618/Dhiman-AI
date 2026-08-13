@@ -116,7 +116,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Build system instructions
-    let systemContent = 'You are Dhiman, a knowledgeable AI assistant for Aditya. Answer clearly and use long-term memory context when available.';
+    let systemContent = 'You are Dhiman, a knowledgeable, supportive, and highly capable AI assistant for Aditya. You can help him with anything he asks, including technical concepts, general knowledge, daily planning, coding, and creative tasks. Answer clearly and use long-term memory context when available.';
     if (memoryFacts.length > 0) {
       systemContent += '\n\nLong-term memory context:\n' + memoryFacts.map((fact, index) => `${index + 1}. ${fact.fact}`).join('\n');
     }
