@@ -22,31 +22,64 @@ registerSocketHandlers(io);
 
 // HTTP Endpoints
 
-// Tools specification compatible with Claude Tool Use API
+// Tools specification compatible with OpenRouter (OpenAI-compatible) API
 const tools = [
   {
-    name: "get_current_datetime",
-    description: "Get the current date and time in ISO format.",
-    input_schema: {
-      type: "object",
-      properties: {}
+    type: "function",
+    function: {
+      name: "get_current_datetime",
+      description: "Get the current date and time in ISO format.",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
     }
   },
   {
-    name: "web_search",
-    description: "Search the web for up-to-date information on a given topic using Tavily Search API.",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "The search query term or phrase."
-        }
-      },
-      required: ["query"]
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web for up-to-date information on a given topic using Tavily Search API.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query term or phrase."
+          }
+        },
+        required: ["query"]
+      }
     }
   }
 ];
+
+// OpenRouter API completions helper
+async function callOpenRouter(messages) {
+  if (!config.openrouterApiKey) {
+    throw new Error("Missing OpenRouter API Key.");
+  }
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${config.openrouterApiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "http://localhost:3000",
+      "X-Title": "Dhiman Sovereign"
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-lite",
+      messages: messages,
+      tools: tools
+    })
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error?.message || `HTTP Request failed with status ${response.status}`);
+  }
+  return payload.choices[0].message;
+}
 
 // Tool execution helper functions
 function getCurrentDateTime() {
@@ -94,11 +127,6 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Invalid request: message is required and must be a string.' });
     }
 
-    const { anthropic } = require('./services/ai');
-    if (!anthropic) {
-      throw new Error("Anthropic client is not initialized. Please verify ANTHROPIC_API_KEY in your .env.");
-    }
-
     const activeConversationId = await db.getOrCreateConversation(conversationId, message);
     await db.saveMessage(activeConversationId, 'user', message);
 
@@ -121,15 +149,31 @@ app.post('/api/chat', async (req, res) => {
       systemContent += '\n\nLong-term memory context:\n' + memoryFacts.map((fact, index) => `${index + 1}. ${fact.fact}`).join('\n');
     }
 
-    // Format conversation history for Claude Messages API (roles must alternate, no system role allowed)
-    const claudeMessages = [];
-    for (const msg of recentMessages) {
-      if (msg.role === 'system') continue;
-      claudeMessages.push({
-        role: msg.role,
-        content: msg.content
-      });
-    }
+    // Format history for OpenRouter (Gemini) tool calling loop
+    const apiMessages = [
+      { role: "system", content: systemContent },
+      ...recentMessages.map((msg) => {
+        if (msg.content && typeof msg.content === 'object') {
+          if (msg.content.tool_calls) {
+            return {
+              role: msg.role,
+              content: msg.content.content || null,
+              tool_calls: msg.content.tool_calls
+            };
+          }
+          if (msg.content.tool_use_id) {
+            return {
+              role: "tool",
+              tool_call_id: msg.content.tool_use_id,
+              name: msg.content.name,
+              content: msg.content.content
+            };
+          }
+          return { role: msg.role, content: JSON.stringify(msg.content) };
+        }
+        return { role: msg.role, content: msg.content };
+      })
+    ];
 
     let loopCount = 0;
     let keepRunning = true;
@@ -137,64 +181,54 @@ app.post('/api/chat', async (req, res) => {
 
     while (keepRunning && loopCount < 5) {
       loopCount++;
-      console.log(`[CLAUDE LOOP] Requesting Claude completions (Turn ${loopCount})...`);
+      console.log(`[OPENROUTER LOOP] Requesting completions (Turn ${loopCount})...`);
 
-      const response = await anthropic.messages.create({
-        model: "claude-3-5-sonnet-latest",
-        max_tokens: 1024,
-        system: systemContent,
-        messages: claudeMessages,
-        tools: tools
-      });
+      const modelMessage = await callOpenRouter(apiMessages);
 
-      // Add assistant response to the active query history
-      claudeMessages.push({
-        role: "assistant",
-        content: response.content
-      });
+      // Append assistant response to query array
+      apiMessages.push(modelMessage);
 
       // Save assistant response to DB
-      await db.saveMessage(activeConversationId, 'assistant', response.content);
+      await db.saveMessage(activeConversationId, 'assistant', {
+        content: modelMessage.content || '',
+        tool_calls: modelMessage.tool_calls
+      });
 
-      // Check if Claude requested a tool use
-      const toolCalls = response.content.filter(block => block.type === 'tool_use');
+      if (modelMessage.tool_calls && modelMessage.tool_calls.length > 0) {
+        for (const toolCall of modelMessage.tool_calls) {
+          const { id: toolCallId, function: fn } = toolCall;
+          const toolName = fn.name;
+          const toolArgs = JSON.parse(fn.arguments || '{}');
 
-      if (toolCalls.length > 0) {
-        const toolResultBlocks = [];
-
-        for (const toolCall of toolCalls) {
-          const { id: toolUseId, name: toolName, input: toolInput } = toolCall;
-          console.log(`[CLAUDE LOOP] Executing tool: "${toolName}" with arguments: ${JSON.stringify(toolInput)}`);
+          console.log(`[OPENROUTER LOOP] Executing tool: "${toolName}" with arguments: ${JSON.stringify(toolArgs)}`);
 
           let resultText = '';
           if (toolName === 'get_current_datetime') {
             resultText = getCurrentDateTime();
           } else if (toolName === 'web_search') {
-            resultText = await executeWebSearch(toolInput.query);
+            resultText = await executeWebSearch(toolArgs.query);
           } else {
             resultText = `Error: Unknown tool "${toolName}"`;
           }
 
-          toolResultBlocks.push({
-            type: "tool_result",
-            tool_use_id: toolUseId,
+          // Append tool response to query array
+          apiMessages.push({
+            role: "tool",
+            tool_call_id: toolCallId,
+            name: toolName,
+            content: resultText
+          });
+
+          // Save tool result to DB
+          await db.saveMessage(activeConversationId, 'tool', {
+            tool_use_id: toolCallId,
+            name: toolName,
             content: resultText
           });
         }
-
-        // Add tool results as a user response message to history
-        claudeMessages.push({
-          role: "user",
-          content: toolResultBlocks
-        });
-
-        // Save tool result message to DB
-        await db.saveMessage(activeConversationId, 'user', toolResultBlocks);
-
       } else {
         keepRunning = false;
-        const textBlock = response.content.find(block => block.type === 'text');
-        finalResponseText = textBlock ? textBlock.text : '';
+        finalResponseText = modelMessage.content || '';
       }
     }
 
