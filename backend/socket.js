@@ -95,7 +95,7 @@ function registerSocketHandlers(io) {
             await db.saveMessage(activeConversationId, 'assistant', modelMessage.content || '');
 
             socket.emit('state-change', { state: 'speaking' });
-            socket.emit('dhiman-reply', { text: modelMessage.content, conversationId: activeConversationId });
+            socket.emit('dhiman-reply', { text: modelMessage.content || '', conversationId: activeConversationId });
           }
         }
 

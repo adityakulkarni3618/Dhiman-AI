@@ -82,12 +82,7 @@ app.post('/api/chat', async (req, res) => {
 // 2. List all conversations
 app.get('/api/conversations', async (req, res) => {
   try {
-    const { data, error } = await db.supabase
-      .from('dhiman_conversations')
-      .select('id,title,created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
+    const data = await db.listConversations();
     return res.json({ conversations: data || [] });
   } catch (error) {
     console.error('Conversations list error:', error);
