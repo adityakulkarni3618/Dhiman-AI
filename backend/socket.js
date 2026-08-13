@@ -43,7 +43,18 @@ function registerSocketHandlers(io) {
 
         let conversationHistory = [
           { role: "system", content: systemPrompt },
-          ...recentMessages.map((msg) => ({ role: msg.role, content: msg.content }))
+          ...recentMessages.map((msg) => {
+            let contentStr = '';
+            if (typeof msg.content === 'string') {
+              contentStr = msg.content;
+            } else if (Array.isArray(msg.content)) {
+              const textBlocks = msg.content.filter(block => block.type === 'text');
+              contentStr = textBlocks.map(b => b.text).join('\n');
+            } else if (msg.content) {
+              contentStr = JSON.stringify(msg.content);
+            }
+            return { role: msg.role, content: contentStr };
+          })
         ];
 
         let loopGuard = 0;
