@@ -54,10 +54,11 @@ async function getOrCreateConversation(conversationId, initialTitle) {
 
 // 2. Save Message
 async function saveMessage(conversationId, role, content) {
+  const contentString = typeof content === 'object' ? JSON.stringify(content) : content;
   const newMessage = await Message.create({
     conversationId,
     role,
-    content
+    content: contentString
   });
   return { id: newMessage._id.toString(), role, content };
 }
@@ -71,12 +72,22 @@ async function getRecentMessages(conversationId, limit = 20) {
     .sort({ createdAt: 1 })
     .limit(limit);
     
-  return messages.map(msg => ({
-    id: msg._id.toString(),
-    role: msg.role,
-    content: msg.content,
-    created_at: msg.createdAt
-  }));
+  return messages.map(msg => {
+    let content = msg.content;
+    if (content && (content.startsWith('[') || content.startsWith('{'))) {
+      try {
+        content = JSON.parse(content);
+      } catch (_e) {
+        // Fallback to raw string on parsing errors
+      }
+    }
+    return {
+      id: msg._id.toString(),
+      role: msg.role,
+      content,
+      created_at: msg.createdAt
+    };
+  });
 }
 
 // 4. Fetch Relevant Memory Facts (using local cosine similarity comparison)
