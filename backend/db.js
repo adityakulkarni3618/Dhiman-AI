@@ -1,21 +1,19 @@
-const { createClient } = require('@supabase/supabase-js');
+const mongoose = require('mongoose');
 const config = require('./config');
+const Conversation = require('./models/Conversation');
+const Message = require('./models/Message');
+const MemoryFact = require('./models/MemoryFact');
 
-let supabase = null;
-if (config.supabaseUrl && config.supabaseServiceKey) {
-  supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
+// Connect to MongoDB
+if (config.mongodbUri) {
+  mongoose.connect(config.mongodbUri)
+    .then(() => console.log('✅ Connected to MongoDB successfully.'))
+    .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 } else {
-  console.warn("⚠️  SUPABASE CREDENTIALS MISSING. Database operations will fail. Configure keys in your .env vault.");
-  // Create a Proxy client to avoid throwing on start but report descriptive errors on invocation
-  supabase = new Proxy({}, {
-    get: (target, prop) => {
-      return () => {
-        throw new Error(`Database query failed: "${prop}" was called but SUPABASE_URL/SUPABASE_SERVICE_KEY is missing in your .env vault.`);
-      };
-    }
-  });
+  console.warn("⚠️  MONGODB_URI is missing in config/env. Database operations will fail.");
 }
 
+// Cosine similarity helper for local memory matching
 const parseVector = (value) => {
   if (!value) return null;
   if (Array.isArray(value)) return value;
@@ -42,159 +40,114 @@ const cosineSimilarity = (a, b) => {
   return dotProduct(a, b) / (magA * magB);
 };
 
+// 1. Get or Create Conversation
 async function getOrCreateConversation(conversationId, initialTitle) {
-  if (conversationId) {
-    const { data, error } = await supabase
-      .from('dhiman_conversations')
-      .select('id')
-      .eq('id', conversationId)
-      .single();
-    if (!error && data) {
-      return data.id;
-    }
+  if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+    const existing = await Conversation.findById(conversationId);
+    if (existing) return existing._id.toString();
   }
 
   const title = initialTitle?.trim().slice(0, 120) || 'New conversation';
-  const { data, error } = await supabase
-    .from('dhiman_conversations')
-    .insert({ title })
-    .select('id')
-    .single();
-
-  if (error) {
-    throw error;
-  }
-  return data.id;
+  const newConv = await Conversation.create({ title });
+  return newConv._id.toString();
 }
 
+// 2. Save Message
 async function saveMessage(conversationId, role, content) {
-  const { data, error } = await supabase
-    .from('dhiman_messages')
-    .insert({ conversation_id: conversationId, role, content })
-    .select('id')
-    .single();
-
-  if (error) {
-    throw error;
-  }
-  return data;
+  const newMessage = await Message.create({
+    conversationId,
+    role,
+    content
+  });
+  return { id: newMessage._id.toString(), role, content };
 }
 
+// 3. Get Recent Messages
 async function getRecentMessages(conversationId, limit = 20) {
-  const { data, error } = await supabase
-    .from('dhiman_messages')
-    .select('id,role,content,created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(limit);
-
-  if (error) {
-    throw error;
-  }
-  return data || [];
-}
-
-async function fetchRelevantMemoryFacts(queryEmbedding, topK = 3) {
-  try {
-    // Attempt standard RPC match on dhiman_match_memories
-    const { data, error } = await supabase.rpc('dhiman_match_memories', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.6,
-      match_count: topK
-    });
-
-    if (!error && data) {
-      return data;
-    }
-
-    console.warn("dhiman_match_memories RPC not found or failed, falling back to in-memory matching:", error?.message);
-  } catch (err) {
-    console.warn("RPC fetch error, falling back to in-memory:", err.message);
-  }
-
-  // Fallback to fetching memory facts in-memory and sorting (legacy mode)
-  const { data, error } = await supabase
-    .from('dhiman_memory_facts')
-    .select('id,fact,embedding,source_message_id,created_at')
-    .order('created_at', { ascending: false })
-    .limit(200);
-
-  if (error) {
-    console.warn('Memory lookup warning:', error.message);
+  if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
     return [];
   }
-
-  return (data || [])
-    .map((row) => {
-      const embedding = parseVector(row.embedding);
-      return {
-        ...row,
-        similarity: embedding ? cosineSimilarity(queryEmbedding, embedding) : 0
-      };
-    })
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, topK)
-    .filter((row) => row.similarity > 0.6);
+  const messages = await Message.find({ conversationId })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+    
+  return messages.map(msg => ({
+    id: msg._id.toString(),
+    role: msg.role,
+    content: msg.content,
+    created_at: msg.createdAt
+  }));
 }
 
-async function createMemoryFacts(facts, sourceMessageId, embeddings) {
-  if (facts.length === 0) return [];
+// 4. Fetch Relevant Memory Facts (using local cosine similarity comparison)
+async function fetchRelevantMemoryFacts(queryEmbedding, topK = 3) {
+  const allMemories = await MemoryFact.find({});
+  
+  return allMemories
+    .map((row) => ({
+      id: row._id.toString(),
+      fact: row.fact,
+      embedding: row.embedding,
+      similarity: row.embedding ? cosineSimilarity(queryEmbedding, row.embedding) : 0
+    }))
+    .sort((a, b) => b.similarity - a.similarity)
+    .filter((row) => row.similarity > 0.6)
+    .slice(0, topK);
+}
 
+// 5. Create Memory Facts
+async function createMemoryFacts(facts, sourceMessageId, embeddings) {
   const inserts = [];
   for (let i = 0; i < facts.length; i++) {
-    const fact = facts[i];
-    const embedding = embeddings[i];
-    if (Array.isArray(embedding)) {
-      inserts.push({ fact, embedding, source_message_id: sourceMessageId });
+    if (Array.isArray(embeddings[i])) {
+      inserts.push({
+        fact: facts[i],
+        embedding: embeddings[i],
+        sourceMessageId: mongoose.Types.ObjectId.isValid(sourceMessageId) ? sourceMessageId : null
+      });
     }
   }
-
+  
   if (inserts.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from('dhiman_memory_facts')
-    .insert(inserts)
-    .select('id,fact');
-
-  if (error) {
-    throw error;
-  }
-  return data || [];
+  const results = await MemoryFact.insertMany(inserts);
+  return results.map(r => ({ id: r._id.toString(), fact: r.fact }));
 }
 
+// 6. List All Memories
 async function listAllMemoryFacts() {
-  const { data, error } = await supabase
-    .from('dhiman_memory_facts')
-    .select('id,fact,created_at')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  const list = await MemoryFact.find({}).sort({ createdAt: -1 });
+  return list.map(item => ({
+    id: item._id.toString(),
+    fact: item.fact,
+    created_at: item.createdAt
+  }));
 }
 
+// 7. Delete Memory Fact
 async function deleteMemoryFact(id) {
-  const { error } = await supabase
-    .from('dhiman_memory_facts')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    await MemoryFact.findByIdAndDelete(id);
+  }
   return { success: true };
 }
 
+// 8. Add Manual Memory Fact
 async function addManualMemoryFact(fact, embedding) {
-  const { data, error } = await supabase
-    .from('dhiman_memory_facts')
-    .insert({ fact, embedding })
-    .select('id,fact')
-    .single();
+  const manualFact = await MemoryFact.create({ fact, embedding });
+  return { id: manualFact._id.toString(), fact: manualFact.fact };
+}
 
-  if (error) throw error;
-  return data;
+// 9. List Conversations
+async function listConversations() {
+  const list = await Conversation.find({}).sort({ createdAt: -1 });
+  return list.map(c => ({
+    id: c._id.toString(),
+    title: c.title,
+    created_at: c.createdAt
+  }));
 }
 
 module.exports = {
-  supabase,
   getOrCreateConversation,
   saveMessage,
   getRecentMessages,
@@ -202,5 +155,6 @@ module.exports = {
   createMemoryFacts,
   listAllMemoryFacts,
   deleteMemoryFact,
-  addManualMemoryFact
+  addManualMemoryFact,
+  listConversations
 };
