@@ -7,6 +7,7 @@ const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/dhiman_ai'
 };
 
 // Structural checks for required API credentials
@@ -15,8 +16,7 @@ console.log("⚙️  CONFIG VALIDATION METRICS:");
 console.log("🌐 OPENROUTER API KEY:", config.openrouterApiKey ? "✅ FOUND" : "❌ NOT FOUND");
 console.log("🌐 ANTHROPIC API KEY :", config.anthropicApiKey ? "✅ FOUND" : "⚠️  MISSING (will fallback to OpenRouter)");
 console.log("🌐 OPENAI API KEY    :", config.openaiApiKey ? "✅ FOUND (Embeddings active)" : "⚠️  MISSING (Embedding logic will be skipped)");
-console.log("🌐 SUPABASE URL      :", config.supabaseUrl ? "✅ FOUND" : "❌ MISSING");
-console.log("🌐 SUPABASE KEY      :", config.supabaseServiceKey ? "✅ FOUND" : "❌ MISSING");
+console.log("🌐 MONGODB URI       :", config.mongodbUri ? "✅ FOUND" : "❌ MISSING");
 console.log("=========================================");
 
 module.exports = config;
