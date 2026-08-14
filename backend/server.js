@@ -29,10 +29,7 @@ const tools = [
     function: {
       name: "get_current_datetime",
       description: "Get the current date and time in ISO format.",
-      parameters: {
-        type: "object",
-        properties: {}
-      }
+      properties: {}
     }
   },
   {
@@ -49,6 +46,58 @@ const tools = [
           }
         },
         required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "open_system_app",
+      description: "Safely open a pre-defined desktop application on the host machine. Allowed apps: chrome, whatsapp, notepad, calculator, vscode.",
+      parameters: {
+        type: "object",
+        properties: {
+          app_name: {
+            type: "string",
+            description: "The name of the application to open. Must be one of: chrome, whatsapp, notepad, calculator, vscode.",
+            enum: ["chrome", "whatsapp", "notepad", "calculator", "vscode"]
+          }
+        },
+        required: ["app_name"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "open_url",
+      description: "Safely open a specific web URL or a web search URL in the user's default browser.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "The fully qualified HTTP or HTTPS URL to open (e.g. 'https://www.google.com' or 'https://www.youtube.com')."
+          }
+        },
+        required: ["url"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "run_terminal_command",
+      description: "Run an arbitrary shell/terminal command on the host Windows machine. Always requires interactive user approval before running.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "The shell/terminal command to execute (e.g. 'dir', 'ipconfig', 'git status', etc.)."
+          }
+        },
+        required: ["command"]
       }
     }
   }
@@ -117,6 +166,56 @@ async function executeWebSearch(query) {
     console.error("[TOOL ERROR] Web search execution failed:", error.message);
     return `Search failed: ${error.message}`;
   }
+}
+
+const { exec } = require('child_process');
+
+function executeOpenSystemApp(appName) {
+  console.log(`[TOOL CALL] open_system_app -> App: "${appName}"`);
+  const appCommands = {
+    chrome: 'start chrome',
+    whatsapp: 'start whatsapp:',
+    notepad: 'start notepad',
+    calculator: 'start calc',
+    vscode: 'start code'
+  };
+
+  const command = appCommands[appName.toLowerCase()];
+  if (!command) {
+    return `Error: Application "${appName}" is not in the allowed list of safe applications.`;
+  }
+
+  return new Promise((resolve) => {
+    exec(command, (error) => {
+      if (error) {
+        console.error(`[TOOL ERROR] Failed to launch ${appName}:`, error.message);
+        resolve(`Failed to open ${appName}: ${error.message}`);
+      } else {
+        console.log(`[TOOL RESULT] Successfully launched ${appName}`);
+        resolve(`Successfully opened ${appName}.`);
+      }
+    });
+  });
+}
+
+function executeOpenUrl(targetUrl) {
+  console.log(`[TOOL CALL] open_url -> URL: "${targetUrl}"`);
+  if (!/^https?:\/\/[^\s$.?#].[^\s]*$/i.test(targetUrl)) {
+    return "Error: Invalid URL format. URL must start with http:// or https:// and be well-formed.";
+  }
+
+  const escapedUrl = targetUrl.replace(/"/g, '\\"');
+  return new Promise((resolve) => {
+    exec(`start "" "${escapedUrl}"`, (error) => {
+      if (error) {
+        console.error(`[TOOL ERROR] Failed to open URL:`, error.message);
+        resolve(`Failed to open URL: ${error.message}`);
+      } else {
+        console.log(`[TOOL RESULT] Successfully opened URL`);
+        resolve(`Successfully opened URL: ${targetUrl}`);
+      }
+    });
+  });
 }
 
 // 1. Send chat completion (legacy/direct HTTP option)
@@ -207,6 +306,12 @@ app.post('/api/chat', async (req, res) => {
             resultText = getCurrentDateTime();
           } else if (toolName === 'web_search') {
             resultText = await executeWebSearch(toolArgs.query);
+          } else if (toolName === 'open_system_app') {
+            resultText = await executeOpenSystemApp(toolArgs.app_name);
+          } else if (toolName === 'open_url') {
+            resultText = await executeOpenUrl(toolArgs.url);
+          } else if (toolName === 'run_terminal_command') {
+            resultText = "Error: Running terminal commands requires interactive approval. Please use the WebSocket chat connection (the speech/live-link feature) to trigger and approve command execution.";
           } else {
             resultText = `Error: Unknown tool "${toolName}"`;
           }
