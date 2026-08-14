@@ -29,6 +29,7 @@ export default function App() {
   const [isSyncingMemory, setIsSyncingMemory] = useState(false);
   const [memoryNotification, setMemoryNotification] = useState(null);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
+  const [pendingCommandApproval, setPendingCommandApproval] = useState(null);
 
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -200,10 +201,16 @@ export default function App() {
       ]);
     });
 
+    // Intercept command execution approvals
+    socket.on('request-command-approval', (data) => {
+      setPendingCommandApproval(data);
+    });
+
     return () => {
       socket.off('state-change');
       socket.off('dhiman-reply');
       socket.off('tool-status');
+      socket.off('request-command-approval');
     };
   }, []);
 
@@ -476,6 +483,49 @@ export default function App() {
 
       {/* Memory Manager Slideover Panel */}
       <MemoryManager isOpen={isMemoryOpen} onClose={() => setIsMemoryOpen(false)} />
+
+      {/* Terminal Command Approval Modal */}
+      {pendingCommandApproval && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0b1329] border border-amber-500/40 rounded-2xl p-6 max-w-md w-full shadow-[0_0_50px_rgba(245,158,11,0.15)] flex flex-col gap-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <ShieldAlert size={28} />
+              <span className="font-mono font-bold text-sm tracking-wider uppercase">Security Approval Required</span>
+            </div>
+            <p className="text-xs text-slate-300 font-mono leading-relaxed">
+              Dhiman is requesting permission to execute the following terminal command on your device:
+            </p>
+            <div className="bg-black/50 border border-blue-900/30 rounded-xl p-3 font-mono text-xs text-cyan-400 break-all whitespace-pre-wrap select-text">
+              {pendingCommandApproval.command}
+            </div>
+            <p className="text-[10px] text-amber-500/80 font-mono italic">
+              Warning: Review this command carefully before approving.
+            </p>
+            <div className="flex gap-3 justify-end mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  socket.emit('command-approval-response', { id: pendingCommandApproval.id, approved: false });
+                  setPendingCommandApproval(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-xs font-bold font-mono transition-all"
+              >
+                DENY
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  socket.emit('command-approval-response', { id: pendingCommandApproval.id, approved: true });
+                  setPendingCommandApproval(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold font-mono transition-all"
+              >
+                APPROVE & EXECUTE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
