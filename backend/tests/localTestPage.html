@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dhiman Browser Testing Environment</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #0b1329; color: #fff; }
+    input, button, select { padding: 8px; margin: 5px 0; background: #1a233d; border: 1px solid #3b82f6; color: #fff; border-radius: 4px; }
+    .success { color: #10b981; font-weight: bold; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Dhiman Local Test Harness Page</h1>
+  <p>Test inputs, clicks, and navigation states below.</p>
+
+  <form id="test-form">
+    <label>Search Query:</label><br>
+    <input type="text" id="search-input" name="q" placeholder="Enter keyword here"><br>
+
+    <label>Selection Dropdown:</label><br>
+    <select id="options-select">
+      <option value="none">Select option...</option>
+      <option value="react">React Tutorials</option>
+      <option value="node">Node.js Guides</option>
+    </select><br>
+
+    <button type="button" id="submit-btn" onclick="triggerSubmit()">Perform Submit</button>
+  </form>
+
+  <div id="output-message" class="success" style="display:none;">Action Executed Successfully!</div>
+  
+  <br>
+  <a href="https://example.com" id="redirect-link">Go to Example Site</a>
+
+  <script>
+    function triggerSubmit() {
+      const q = document.getElementById('search-input').value;
+      const opt = document.getElementById('options-select').value;
+      const msg = document.getElementById('output-message');
+      
+      msg.innerText = `Searched: "${q}" with option "${opt}"`;
+      msg.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
