@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { 
   Mic, BookOpen, Zap, Cpu, MessageSquare, Power, ShieldAlert, Eye, 
   Menu, Plus, History, Terminal, Loader2, ChevronLeft, ChevronRight,
-  CheckCircle, Circle, AlertCircle, PlayCircle
+  CheckCircle, Circle, AlertCircle, PlayCircle, Calendar
 } from 'lucide-react';
 
 import DhimanOrb from './components/DhimanOrb';
