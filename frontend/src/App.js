@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
   Mic, BookOpen, Zap, Cpu, MessageSquare, Power, ShieldAlert, Eye, 
-  Menu, Plus, History, Terminal, Loader2, ChevronLeft, ChevronRight
+  Menu, Plus, History, Terminal, Loader2, ChevronLeft, ChevronRight,
+  CheckCircle, Circle, AlertCircle, PlayCircle
 } from 'lucide-react';
 
 import DhimanOrb from './components/DhimanOrb';
@@ -30,6 +31,7 @@ export default function App() {
   const [memoryNotification, setMemoryNotification] = useState(null);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
   const [pendingCommandApproval, setPendingCommandApproval] = useState(null);
+  const [activeTask, setActiveTask] = useState(null);
 
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -206,11 +208,46 @@ export default function App() {
       setPendingCommandApproval(data);
     });
 
+    // Intercept real-time task updates and timelines
+    socket.on('task-update', (data) => {
+      setActiveTask((prev) => {
+        if (data.status === 'PLANNING') {
+          return { id: data.taskId, goal: data.goal || '', status: 'PLANNING', steps: [] };
+        }
+        if (data.status === 'RUNNING' && data.steps) {
+          return {
+            id: data.taskId,
+            goal: data.goal || (prev ? prev.goal : ''),
+            status: 'RUNNING',
+            steps: data.steps.map((s, idx) => ({
+              description: s.description,
+              status: idx === data.currentStepIndex ? 'RUNNING' : (idx < data.currentStepIndex ? 'COMPLETED' : 'PENDING')
+            }))
+          };
+        }
+        if (prev && prev.id === data.taskId) {
+          const updatedSteps = [...prev.steps];
+          if (data.currentStepIndex !== undefined && updatedSteps[data.currentStepIndex]) {
+            updatedSteps[data.currentStepIndex].status = data.status === 'VERIFYING' ? 'VERIFYING' : (data.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING');
+          }
+          return {
+            ...prev,
+            status: data.status,
+            steps: updatedSteps,
+            result: data.result || prev.result,
+            error: data.error || prev.error
+          };
+        }
+        return prev;
+      });
+    });
+
     return () => {
       socket.off('state-change');
       socket.off('dhiman-reply');
       socket.off('tool-status');
       socket.off('request-command-approval');
+      socket.off('task-update');
     };
   }, []);
 
@@ -422,8 +459,36 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Side: Operational Layout Controls */}
+          {/* Right Side: Operational Layout Controls & Active Task Timeline */}
           <div className="lg:col-span-3 flex flex-col gap-4 overflow-hidden h-full">
+            {activeTask && (
+              <div className="bg-slate-950/40 border border-blue-950/40 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden">
+                <h3 className="text-xs font-bold font-mono tracking-widest text-cyan-400 mb-2.5 uppercase flex items-center gap-1.5 shrink-0">
+                  <Zap size={14} className="animate-pulse"/> ACTIVE GOAL TRACKER
+                </h3>
+                <div className="text-[11px] text-slate-300 font-mono mb-3 bg-black/35 p-2 rounded border border-blue-950/50 shrink-0">
+                  Goal: {activeTask.goal}
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+                  {activeTask.steps.map((step, idx) => (
+                    <div key={idx} className="flex gap-2.5 items-start text-xs font-mono">
+                      {step.status === 'COMPLETED' && <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />}
+                      {step.status === 'RUNNING' && <Loader2 size={14} className="text-cyan-400 animate-spin shrink-0 mt-0.5" />}
+                      {step.status === 'VERIFYING' && <Loader2 size={14} className="text-yellow-400 animate-spin shrink-0 mt-0.5" />}
+                      {step.status === 'PENDING' && <Circle size={14} className="text-slate-600 shrink-0 mt-0.5" />}
+                      {step.status === 'FAILED' && <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />}
+                      <span className={`${step.status === 'COMPLETED' ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
+                        {step.description}
+                      </span>
+                    </div>
+                  ))}
+                  {activeTask.steps.length === 0 && (
+                    <div className="text-[10px] text-slate-500 italic p-2">Formulating strategy...</div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="bg-slate-950/40 border border-blue-950/40 rounded-2xl p-4 flex-1 overflow-y-auto custom-scrollbar">
               <h3 className="text-xs font-bold font-mono tracking-widest text-cyan-400 mb-3 uppercase flex items-center gap-1">
                 <Cpu size={14}/> Operational Protocol Blueprints
