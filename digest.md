@@ -54,3 +54,11 @@
 - Added unit test suite `backend/tests/agent.test.js` validating registry safety policies.
 - Implemented integration test suite `backend/tests/integration.test.js` verifying task plans, terminal approvals, and WebSocket broadcasts.
 - Added programmatic fallback safety overrides inside the agent runtime loop for missing credentials environments.
+- Upgraded Dhiman-AI into a multimodal operating assistant with central config startup validation and dynamic tool discovery.
+- Implemented Windows-native computer control tools (screenshots, active window queries, mouse/keyboard triggers, application launching) via PowerShell wrappers.
+- Created coding agent utilities (grep searching, file patching, test/build executions) and Git/GitHub API wrappers.
+- Integrated mock-fallback email, calendar, and Functionize REST clients.
+- Upgraded Episodic and Semantic memory pipelines and added server-side Voice STT/TTS routing.
+- Built a background task worker queue, scheduler loops, in-app notifications, and React dashboards.
+- Added multimodal integration test suite `backend/tests/multimodal.test.js` (all tests passed).
+
