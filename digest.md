@@ -61,4 +61,8 @@
 - Upgraded Episodic and Semantic memory pipelines and added server-side Voice STT/TTS routing.
 - Built a background task worker queue, scheduler loops, in-app notifications, and React dashboards.
 - Added multimodal integration test suite `backend/tests/multimodal.test.js` (all tests passed).
+- Implemented `backend/agent/assistantRouter.js` separating Conversational Mode from Agent Mode.
+- Integrated process-level Windows launch verification inside the `application_launch` tool using PowerShell `Get-Process`.
+- Redefined fallback summary strings to avoid exposing internal LLM credentials warning blocks to the user.
+
 
