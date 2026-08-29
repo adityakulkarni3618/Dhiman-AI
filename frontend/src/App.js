@@ -32,6 +32,7 @@ export default function App() {
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
   const [pendingCommandApproval, setPendingCommandApproval] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
+  const [currentToolRunning, setCurrentToolRunning] = useState(null);
 
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -201,6 +202,11 @@ export default function App() {
           ...data
         }
       ]);
+      if (data.status === 'running') {
+        setCurrentToolRunning({ name: data.name, args: data.args });
+      } else if (data.status === 'completed' || data.status === 'failed') {
+        setCurrentToolRunning(null);
+      }
     });
 
     // Intercept command execution approvals
@@ -229,6 +235,9 @@ export default function App() {
           const updatedSteps = [...prev.steps];
           if (data.currentStepIndex !== undefined && updatedSteps[data.currentStepIndex]) {
             updatedSteps[data.currentStepIndex].status = data.status === 'VERIFYING' ? 'VERIFYING' : (data.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING');
+          }
+          if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(data.status)) {
+            setCurrentToolRunning(null);
           }
           return {
             ...prev,
@@ -469,6 +478,17 @@ export default function App() {
                 <div className="text-[11px] text-slate-300 font-mono mb-3 bg-black/35 p-2 rounded border border-blue-950/50 shrink-0">
                   Goal: {activeTask.goal}
                 </div>
+                {currentToolRunning && (
+                  <div className="mb-3 text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 bg-cyan-950/20 p-2 rounded border border-cyan-900/30 shrink-0 animate-pulse">
+                    {currentToolRunning.name === 'browser_open' && "🌐 Opening browser..."}
+                    {currentToolRunning.name === 'browser_navigate' && `→ Navigating to ${currentToolRunning.args?.url || 'URL'}...`}
+                    {currentToolRunning.name === 'browser_get_page' && "👁 Reading page..."}
+                    {currentToolRunning.name === 'browser_click' && `🖱 Clicking element ID ${currentToolRunning.args?.elementId || ''}...`}
+                    {currentToolRunning.name === 'browser_type' && `⌨ Typing input query...`}
+                    {currentToolRunning.name === 'browser_screenshot' && "📸 Capturing viewport screenshot..."}
+                    {!['browser_open', 'browser_navigate', 'browser_get_page', 'browser_click', 'browser_type', 'browser_screenshot'].includes(currentToolRunning.name) && `⚙️ Running: ${currentToolRunning.name}...`}
+                  </div>
+                )}
                 <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
                   {activeTask.steps.map((step, idx) => (
                     <div key={idx} className="flex gap-2.5 items-start text-xs font-mono">
