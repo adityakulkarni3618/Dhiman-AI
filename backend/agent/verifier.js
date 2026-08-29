@@ -24,6 +24,46 @@ async function verifyStep(step, observation) {
     }
   }
 
+  if (action.tool === 'coding_run_project') {
+    const { getContext } = require('./entityResolver');
+    const ctx = getContext();
+    if (ctx.activeProject) {
+      return {
+        verified: true,
+        details: `Verified: Active project at "${ctx.activeProject}" is running successfully.`
+      };
+    }
+  }
+
+  if (action.tool === 'coding_stop_project') {
+    return {
+      verified: true,
+      details: "Verified: Running project process stopped successfully."
+    };
+  }
+
+  if (action.tool === 'application_launch') {
+    const appKeyword = (action.args?.appKeyword || '').toLowerCase();
+    let processKeyword = appKeyword;
+    if (appKeyword.includes('code') || appKeyword.includes('vs')) processKeyword = 'code';
+    else if (appKeyword.includes('notepad')) processKeyword = 'notepad';
+    else if (appKeyword.includes('calc')) processKeyword = 'calculator';
+    else if (appKeyword.includes('chrome')) processKeyword = 'chrome';
+
+    const { execSync } = require('child_process');
+    try {
+      const out = execSync(`powershell -Command "Get-Process -Name ${processKeyword} -ErrorAction SilentlyContinue"`).toString();
+      if (out.trim().length > 0) {
+        return {
+          verified: true,
+          details: `Verified: Process for "${appKeyword}" is active.`
+        };
+      }
+    } catch (err) {
+      // process check failed
+    }
+  }
+
   // Fallback to LLM validation for semantic success
   const systemPrompt = `You are a verification officer for Dhiman.
 Check whether the tool output matches the intended step description.

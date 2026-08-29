@@ -103,6 +103,25 @@ async function runMultimodalTests() {
   await Notification.deleteOne({ _id: savedNotify._id });
   console.log("   ✅ Scheduler and Notification schemas successfully tested.");
 
+  // 4b. Test Entity Target Resolution
+  console.log("\n🧪 Testing Semantic Entity and Target Resolver...");
+  const { resolveTarget, updateContext, getContext } = require('../agent/entityResolver');
+  
+  // Test basic scan
+  const projectMatches = resolveTarget("Dhiman-AI");
+  assert(projectMatches.length > 0);
+  assert(projectMatches[0].confidence >= 0.8);
+  
+  // Test active context setting
+  updateContext({ activeProject: projectMatches[0].path });
+  assert.strictEqual(getContext().activeProject, projectMatches[0].path);
+  
+  // Test contextual references (run it)
+  const itMatches = resolveTarget("run it");
+  assert.strictEqual(itMatches[0].confidence, 1.0);
+  assert.strictEqual(itMatches[0].path, projectMatches[0].path);
+  console.log("   ✅ Entity Target Resolver successfully matched names, scored confidence, and resolved 'it' references.");
+
   // 5. Test Response Formatter
   console.log("\n🧪 Testing responseFormatter actions mapping...");
   const { formatResponse } = require('../agent/responseFormatter');

@@ -231,6 +231,33 @@ function registerSocketHandlers(io) {
           return;
         }
 
+        // Target Resolution Interceptor
+        const { resolveTarget, updateContext } = require('./agent/entityResolver');
+        const cleanInput = userInput.toLowerCase();
+        
+        if (cleanInput.includes("open") || cleanInput.includes("run") || cleanInput.includes("stop") || cleanInput.includes("start") || cleanInput.includes("kill") || cleanInput.includes("fix")) {
+          const targets = resolveTarget(userInput);
+          
+          if (targets.length > 1 && targets[0].confidence < 1.0) {
+            const options = targets.slice(0, 3).map(t => t.entity).join(" or ");
+            const reply = `I found multiple matching targets. Which one do you mean: ${options}?`;
+            socket.emit('state-change', { state: 'speaking' });
+            socket.emit('dhiman-reply', { text: reply, conversationId: activeConversationId });
+            return;
+          }
+          
+          if (targets.length === 0 && (cleanInput.includes("project") || cleanInput.includes("store") || cleanInput.includes("app"))) {
+            const reply = `I couldn't find a matching project or store in your workspace roots.`;
+            socket.emit('state-change', { state: 'speaking' });
+            socket.emit('dhiman-reply', { text: reply, conversationId: activeConversationId });
+            return;
+          }
+          
+          if (targets.length > 0 && targets[0].confidence >= 0.7) {
+            updateContext({ activeProject: targets[0].path });
+          }
+        }
+
         // 2. Create a task session via GoalManager
         const goalManager = require('./agent/goalManager');
         const goalObj = await goalManager.createGoal(userInput, { priority: 'MEDIUM', conversationId: activeConversationId });

@@ -125,3 +125,83 @@ registerTool({
     });
   }
 });
+
+const activeProcesses = new Map();
+
+// ==========================================
+// 5. CODING_RUN_PROJECT
+// ==========================================
+registerTool({
+  name: "coding_run_project",
+  description: "Starts the active project using its dev or start command in the background.",
+  category: "coding",
+  parameters: { type: "object", properties: {} },
+  riskLevel: "CONFIRM",
+  execute: async () => {
+    const { getContext } = require('../agent/entityResolver');
+    const ctx = getContext();
+    if (!ctx.activeProject) {
+      return "Error: No active project is currently set. Open a project first.";
+    }
+
+    const { scanProjects } = require('../agent/entityResolver');
+    const projects = scanProjects();
+    const currentMeta = projects.find(p => p.path === ctx.activeProject);
+    const runCmd = currentMeta ? currentMeta.devCommand : 'npm run dev';
+
+    if (activeProcesses.has(ctx.activeProject)) {
+      return `Project is already running at "${ctx.activeProject}".`;
+    }
+
+    const { spawn } = require('child_process');
+    const child = spawn(runCmd, {
+      shell: true,
+      cwd: ctx.activeProject,
+      detached: true
+    });
+
+    activeProcesses.set(ctx.activeProject, child);
+    
+    await new Promise(r => setTimeout(r, 1500));
+    
+    if (child.killed) {
+      activeProcesses.delete(ctx.activeProject);
+      return `Failed to start project. Process terminated immediately.`;
+    }
+
+    return `Project started successfully in background with command: "${runCmd}" CWD: "${ctx.activeProject}".`;
+  }
+});
+
+// ==========================================
+// 6. CODING_STOP_PROJECT
+// ==========================================
+registerTool({
+  name: "coding_stop_project",
+  description: "Stops the running active project process.",
+  category: "coding",
+  parameters: { type: "object", properties: {} },
+  riskLevel: "CONFIRM",
+  execute: async () => {
+    const { getContext } = require('../agent/entityResolver');
+    const ctx = getContext();
+    if (!ctx.activeProject) {
+      return "Error: No active project is set.";
+    }
+
+    const child = activeProcesses.get(ctx.activeProject);
+    if (!child) {
+      return `No running process found for active project at "${ctx.activeProject}".`;
+    }
+
+    const { execSync } = require('child_process');
+    try {
+      execSync(`taskkill /pid ${child.pid} /f /t`);
+    } catch (err) {
+      child.kill();
+    }
+
+    activeProcesses.delete(ctx.activeProject);
+    return `Successfully stopped project process tree running at "${ctx.activeProject}".`;
+  }
+});

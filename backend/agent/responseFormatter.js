@@ -16,6 +16,33 @@ function formatResponse(task, steps = []) {
 
   const goalLower = task.goal.toLowerCase();
 
+  const { getContext } = require('./entityResolver');
+  const ctx = getContext();
+  const projectName = ctx.activeProject ? require('path').basename(ctx.activeProject) : '';
+
+  // Project Open confirmations
+  if (goalLower.includes("open") && (goalLower.includes("project") || goalLower.includes("store") || (projectName && goalLower.includes(projectName.toLowerCase())))) {
+    if (projectName) {
+      return `${projectName} is open in VS Code.`;
+    }
+  }
+
+  // Project Run confirmations
+  if (goalLower.includes("run") || goalLower.includes("start")) {
+    const runStep = steps.find(s => s.action?.tool === 'coding_run_project');
+    if (runStep && runStep.status === 'COMPLETED' && projectName) {
+      return `Project ${projectName} is running.`;
+    }
+  }
+
+  // Project Stop confirmations
+  if (goalLower.includes("stop") || goalLower.includes("kill")) {
+    const stopStep = steps.find(s => s.action?.tool === 'coding_stop_project');
+    if (stopStep && stopStep.status === 'COMPLETED' && projectName) {
+      return `Project ${projectName} stopped successfully.`;
+    }
+  }
+
   // Simple Application Launch confirmation mapping
   if (goalLower.includes("open vs code") || goalLower.includes("vscode") || goalLower.includes("open code")) {
     const launchStep = steps.find(s => s.action?.tool === 'application_launch');
