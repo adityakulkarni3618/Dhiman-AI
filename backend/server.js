@@ -16,6 +16,7 @@ app.use(express.json());
 require('./tools/allTools');
 app.use('/api/agent', require('./routes/agent'));
 app.use('/api/voice', require('./routes/voice'));
+app.use('/api/tasks', require('./tasks/taskQueue').router);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -448,6 +449,19 @@ app.post('/api/memory', async (req, res) => {
     console.error('Add memory error:', error);
     return res.status(500).json({ error: 'Unable to insert memory fact.' });
   }
+});
+
+// Bootstrap background scheduler loop
+const { startSchedulerLoop } = require('./tasks/taskQueue');
+const { runTask } = require('./agent/agentRuntime');
+const Task = require('./models/Task');
+
+startSchedulerLoop(async (goalText) => {
+  const task = new Task({ goal: goalText, status: 'PENDING' });
+  await task.save();
+  await runTask(task._id.toString(), {
+    onUpdate: (data) => console.log(`[SCHEDULER TASK UPDATE]`, data)
+  });
 });
 
 // Bootstrap server on port 5005
