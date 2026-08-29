@@ -69,3 +69,28 @@ This project persists chat sessions and memories locally using **MongoDB**.
    ```env
    MONGODB_URI=mongodb://localhost:27017/dhiman_ai
    ```
+
+## AI and Search Configuration
+
+The assistant leverages OpenRouter (Gemini) and Anthropic (Claude) for text/tool operations, and Tavily for web searches.
+
+Configure the API keys in `backend/.env`:
+```env
+# OpenRouter API Key (Gemini)
+OPENROUTER_API_KEY=your-openrouter-key
+
+# Anthropic API Key (Claude)
+ANTHROPIC_API_KEY=your-anthropic-key
+
+# OpenAI API Key (Embeddings)
+OPENAI_API_KEY=your-openai-key
+
+# Tavily API Key (Web Search)
+TAVILY_API_KEY=your-tavily-key
+```
+
+## Security & Interactive Tools
+
+Dhiman features system integration capabilities, including local terminal command execution. For host security:
+- Whenever the assistant triggers the `run_terminal_command` tool, the frontend renders a security approval modal.
+- Commands will remain pending and will not run until you explicitly click **APPROVE & EXECUTE**.
