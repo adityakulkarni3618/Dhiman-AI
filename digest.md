@@ -68,6 +68,11 @@
 - Integrated Dynamic Capability Selection filtering within `backend/agent/planner.js` and the tool registry.
 - Implemented `backend/agent/appResolver.js` for generic Windows app installation and path discovery.
 - Upgraded the Agent Runtime task loop to handle cancellations, pause triggers, and dynamic replanning on tool failures.
+- Implemented `backend/agent/entityResolver.js` for confidence-based project, file, and alias resolution.
+- Integrated contextual resolution mappings for conversational active project contexts and pronouns ("run it", "stop it").
+- Upgraded `backend/agent/verifier.js` to run goal-specific programmatic checks on active process properties.
+- Added background running and termination capabilities inside `backend/tools/codingTools.js`.
+
 
 
 
