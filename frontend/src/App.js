@@ -9,6 +9,7 @@ import {
 import DhimanOrb from './components/DhimanOrb';
 import MarkdownText from './components/MarkdownText';
 import MemoryManager from './components/MemoryManager';
+import TaskDashboard from './components/TaskDashboard';
 
 const socket = io('http://localhost:5005');
 
@@ -33,6 +34,7 @@ export default function App() {
   const [pendingCommandApproval, setPendingCommandApproval] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
   const [currentToolRunning, setCurrentToolRunning] = useState(null);
+  const [isTaskDashboardOpen, setIsTaskDashboardOpen] = useState(false);
 
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -388,6 +390,12 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-6 font-mono text-xs text-slate-400">
+            <button
+              onClick={() => setIsTaskDashboardOpen(true)}
+              className="bg-cyan-500/10 px-3 py-1 rounded border border-cyan-500/30 text-cyan-400 font-bold hover:bg-cyan-500/20 hover:text-white transition-all flex items-center gap-1.5"
+            >
+              <Calendar size={13} /> TASK CENTER
+            </button>
             <div className="flex items-center gap-1"><Eye size={12} className="text-cyan-400"/> <span>GEMINI ENGINE</span></div>
             <div className="bg-blue-950/40 px-3 py-1 rounded border border-blue-900/30 text-cyan-400">
               STATE: <span className="uppercase font-bold">{systemState}</span>
@@ -568,6 +576,9 @@ export default function App() {
 
       {/* Memory Manager Slideover Panel */}
       <MemoryManager isOpen={isMemoryOpen} onClose={() => setIsMemoryOpen(false)} />
+
+      {/* Task Dashboard Panel */}
+      <TaskDashboard isOpen={isTaskDashboardOpen} onClose={() => setIsTaskDashboardOpen(false)} activeTask={activeTask} socket={socket} />
 
       {/* Terminal Command Approval Modal */}
       {pendingCommandApproval && (
