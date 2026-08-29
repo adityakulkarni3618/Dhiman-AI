@@ -231,8 +231,10 @@ function registerSocketHandlers(io) {
           return;
         }
 
-        // 2. Create a task session
-        const task = await taskManager.createTask(userInput, 'MEDIUM', activeConversationId);
+        // 2. Create a task session via GoalManager
+        const goalManager = require('./agent/goalManager');
+        const goalObj = await goalManager.createGoal(userInput, { priority: 'MEDIUM', conversationId: activeConversationId });
+        const task = await taskManager.getTask(goalObj.goalId);
         
         // 2. Setup interactive socket approval callback
         const requestApproval = async (toolName, args) => {

@@ -57,14 +57,31 @@ router.get('/tasks/:id', async (req, res) => {
 // 4. Cancel a running task
 router.post('/tasks/:id/cancel', async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
-    if (!task) return res.status(404).json({ error: "Task not found." });
+    const goalManager = require('../agent/goalManager');
+    goalManager.cancelGoal(req.params.id);
+    return res.json({ success: true, status: 'CANCELLED' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 
-    if (['RUNNING', 'PENDING', 'PLANNING', 'VERIFYING', 'WAITING_FOR_APPROVAL'].includes(task.status)) {
-      await taskManager.updateTaskStatus(task._id.toString(), 'CANCELLED');
-      return res.json({ success: true, status: 'CANCELLED' });
-    }
-    return res.status(400).json({ error: "Task is not running or active." });
+// 4b. Pause a running task
+router.post('/tasks/:id/pause', async (req, res) => {
+  try {
+    const goalManager = require('../agent/goalManager');
+    goalManager.pauseGoal(req.params.id);
+    return res.json({ success: true, status: 'PAUSED' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 4c. Resume a paused task
+router.post('/tasks/:id/resume', async (req, res) => {
+  try {
+    const goalManager = require('../agent/goalManager');
+    goalManager.resumeGoal(req.params.id);
+    return res.json({ success: true, status: 'RUNNING' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

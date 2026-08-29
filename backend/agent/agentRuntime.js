@@ -37,8 +37,24 @@ async function runTask(taskId, context = {}) {
     let currentIdx = 0;
     const maxSteps = 15;
     let stepRunsCount = 0;
+    const goalManager = require('./goalManager');
 
     while (currentIdx < steps.length && stepRunsCount < maxSteps) {
+      // Check cancellation state
+      if (goalManager.isCancelled(taskId)) {
+        console.log(`[AGENT RUNTIME] Task ${taskId} cancelled by user.`);
+        throw new Error("Task execution cancelled by user.");
+      }
+
+      // Check paused state
+      while (goalManager.isPaused(taskId)) {
+        console.log(`[AGENT RUNTIME] Task ${taskId} is paused. Waiting to resume...`);
+        await new Promise(r => setTimeout(r, 1000));
+        if (goalManager.isCancelled(taskId)) {
+          throw new Error("Task execution cancelled by user.");
+        }
+      }
+
       stepRunsCount++;
       const currentStep = steps[currentIdx];
 
@@ -89,13 +105,33 @@ async function runTask(taskId, context = {}) {
         const recovery = recoveryManager.handleFailure(currentStep, observation.error);
         if (recovery.action === 'RETRY') {
           console.log(`[AGENT RUNTIME] Recovery strategy: Retry step with args override.`);
-          // Create temporary override argument list if needed
           if (recovery.overrideArgs) {
             currentStep.action.args = recovery.overrideArgs;
           }
-          // Do not advance index so it retries
         } else {
-          // Abort task or mark step failed
+          // Dynamic Replanning: query the planner for an alternative sequence of steps to recover
+          console.log(`[AGENT RUNTIME] Step failed and recovery returned no immediate override. Attempting dynamic replanning...`);
+          try {
+            const replanGoal = `Step "${currentStep.description}" failed with error "${observation.error}". Rest of objective: "${task.goal}". Formulate a new plan to achieve this goal.`;
+            const replannedSteps = await planner.generatePlan(replanGoal, context.history || []);
+            if (replannedSteps && replannedSteps.length > 0) {
+              console.log(`[AGENT RUNTIME] Dynamic replanning succeeded. Appending ${replannedSteps.length} new steps.`);
+              // Mark current step as failed
+              await taskManager.updateStep(currentStep._id, { status: 'FAILED', error: observation.error });
+              
+              // Create the replanned steps as new steps in the database
+              const createdSteps = await taskManager.createPlanSteps(taskId, replannedSteps);
+              steps = steps.slice(0, currentIdx + 1).concat(createdSteps);
+              
+              // Force next step iteration index
+              currentIdx++;
+              continue;
+            }
+          } catch (replanErr) {
+            console.error(`[AGENT RUNTIME] Dynamic replanning failed:`, replanErr.message);
+          }
+
+          // Abort if replanning yielded nothing
           await taskManager.updateStep(currentStep._id, {
             status: 'FAILED',
             error: observation.error

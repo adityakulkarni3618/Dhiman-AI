@@ -50,6 +50,18 @@ function getLLMToolDefinitions() {
     }));
 }
 
+const categoryToCapabilities = {
+  system: ['SYSTEM', 'COMPUTER'],
+  filesystem: ['FILESYSTEM'],
+  web: ['WEB', 'BROWSER'],
+  browser: ['BROWSER'],
+  computer: ['COMPUTER'],
+  coding: ['CODING', 'TESTING'],
+  github: ['GIT', 'GITHUB'],
+  communication: ['EMAIL', 'CALENDAR'],
+  functionize: ['TESTING']
+};
+
 /**
  * Filter tool definitions based on user objective keywords.
  */
@@ -95,10 +107,35 @@ function getLLMToolDefinitionsFiltered(goal = '') {
   }));
 }
 
+/**
+ * Expose tool definitions mapped directly to dynamic capability keys.
+ */
+function getLLMToolsForCapabilities(capabilities = []) {
+  if (!Array.isArray(capabilities) || capabilities.length === 0) {
+    return getLLMToolDefinitions();
+  }
+  const capsUpper = capabilities.map(c => c.toUpperCase());
+  return Object.values(registry)
+    .filter(t => t.riskLevel !== 'BLOCKED')
+    .filter(t => {
+      const toolCaps = categoryToCapabilities[t.category] || [];
+      return toolCaps.some(tc => capsUpper.includes(tc)) || t.category === 'system';
+    })
+    .map(t => ({
+      type: 'function',
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters
+      }
+    }));
+}
+
 module.exports = {
   registerTool,
   getAllTools,
   getTool,
   getLLMToolDefinitions,
-  getLLMToolDefinitionsFiltered
+  getLLMToolDefinitionsFiltered,
+  getLLMToolsForCapabilities
 };

@@ -8,7 +8,33 @@ const { getLLMToolDefinitionsFiltered } = require('../tools/registry');
  * @returns {Promise<Array>} A structured plan list.
  */
 async function generatePlan(goal, history = []) {
-  const tools = getLLMToolDefinitionsFiltered(goal);
+  // 1. Identify capabilities needed
+  let capabilities = ['SYSTEM', 'FILESYSTEM', 'WEB'];
+  const clean = goal.toLowerCase();
+  
+  if (/\b(git|github|pr|commit|push|repo|checkout|branch)\b/.test(clean)) {
+    capabilities.push('GIT', 'GITHUB', 'CODING');
+  }
+  if (/\b(mail|email|send|message)\b/.test(clean)) {
+    capabilities.push('EMAIL');
+  }
+  if (/\b(browser|google|page|web|search|website|url)\b/.test(clean)) {
+    capabilities.push('BROWSER', 'WEB');
+  }
+  if (/\b(screen|window|mouse|keyboard|click|type|notepad|calc|chrome|code|app)\b/.test(clean)) {
+    capabilities.push('COMPUTER');
+  }
+  if (/\b(test|functionize|regression|assert)\b/.test(clean)) {
+    capabilities.push('TESTING');
+  }
+
+  // Deduplicate capabilities
+  capabilities = [...new Set(capabilities)];
+  console.log(`[PLANNER] Selected capabilities for task:`, capabilities);
+
+  // 2. Fetch tools corresponding to detected capabilities
+  const { getLLMToolsForCapabilities } = require('../tools/registry');
+  const tools = getLLMToolsForCapabilities(capabilities);
   
   const systemPrompt = `You are the lead planner for Dhiman, an autonomous personal assistant. 
 Your job is to break down the user's high-level goal into a sequence of concrete steps.
@@ -17,7 +43,7 @@ For each step, specify:
 1. A clear "description" explaining what this step does.
 2. The "action" containing the "tool" name and its "args" object. If no tool is needed (e.g. final report), set "tool" to an empty string.
 
-Available Tools:
+Available Tools for detected capabilities:
 ${JSON.stringify(tools, null, 2)}
 
 You MUST output your response in JSON format matching the schema:

@@ -150,24 +150,19 @@ registerTool({
 // ==========================================
 registerTool({
   name: "application_launch",
-  description: "Launches a designated desktop application. Allowed application keywords: notepad, calculator, chrome, vscode.",
+  description: "Launches a designated desktop application on the host Windows machine.",
   category: "computer",
   parameters: {
     type: "object",
     properties: {
-      appKeyword: { type: "string", enum: ["notepad", "calculator", "chrome", "vscode"] }
+      appKeyword: { type: "string", description: "Application name keyword, e.g. VS Code, Chrome, Notepad, Calculator" }
     },
     required: ["appKeyword"]
   },
   riskLevel: "CONFIRM",
   execute: async (args) => {
-    const appsMap = {
-      notepad: 'notepad.exe',
-      calculator: 'calc.exe',
-      chrome: 'chrome.exe',
-      vscode: 'code'
-    };
-    const execName = appsMap[args.appKeyword];
+    const { resolveApplication } = require('../agent/appResolver');
+    const execName = resolveApplication(args.appKeyword);
     const script = `Start-Process "${execName}"`;
     const res = await runPowerShell(script);
     if (!res.success) {
@@ -175,8 +170,11 @@ registerTool({
     }
 
     // Verify execution process existence
-    let processKeyword = args.appKeyword;
-    if (args.appKeyword === 'vscode') processKeyword = 'code';
+    let processKeyword = args.appKeyword.toLowerCase();
+    if (processKeyword.includes('code') || processKeyword.includes('vs')) processKeyword = 'code';
+    else if (processKeyword.includes('notepad')) processKeyword = 'notepad';
+    else if (processKeyword.includes('calc')) processKeyword = 'calculator';
+    else if (processKeyword.includes('chrome')) processKeyword = 'chrome';
     
     let launched = false;
     for (let i = 0; i < 6; i++) {
