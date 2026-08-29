@@ -341,3 +341,9 @@ require('./computerTools');
 require('./codingTools');
 require('./gitTools');
 require('./githubTools');
+
+// ==========================================
+// 16. COMMS & FUNCTIONIZE TOOLS
+// ==========================================
+require('./commsTools');
+require('./functionizeTools');
