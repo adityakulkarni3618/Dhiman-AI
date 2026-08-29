@@ -1,6 +1,9 @@
 const db = require('./db');
 const ai = require('./services/ai');
 const config = require('./config');
+const taskManager = require('./agent/taskManager');
+const { runTask } = require('./agent/agentRuntime');
+const Approval = require('./models/Approval');
 
 // Tools specifications compatible with OpenRouter (OpenAI-compatible) API
 const tools = [
@@ -215,149 +218,78 @@ function registerSocketHandlers(io) {
 
         const recentMessages = await db.getRecentMessages(activeConversationId, 12);
         
-        let memoryFacts = [];
-        try {
-          const queryEmbedding = await ai.getEmbedding(userInput);
-          if (queryEmbedding) {
-            memoryFacts = await db.fetchRelevantMemoryFacts(queryEmbedding, 4);
-          }
-        } catch (embError) {
-          console.warn('Memory search skipped: failed to generate query embedding', embError.message);
-        }
+        // 1. Create a task session
+        const task = await taskManager.createTask(userInput, 'MEDIUM', activeConversationId);
+        
+        // 2. Setup interactive socket approval callback
+        const requestApproval = async (toolName, args) => {
+          return new Promise(async (resolve) => {
+            const approvalId = Math.random().toString(36).substring(2, 9);
+            const approvalObj = await Approval.create({
+              taskId: task._id,
+              actionType: toolName,
+              commandOrAction: args.command || args.filepath || JSON.stringify(args),
+              status: 'PENDING'
+            });
 
-        let systemPrompt = "You are Dhiman, a knowledgeable, supportive, and highly capable AI assistant for Aditya. You can help him with anything he asks, including technical concepts, general knowledge, daily planning, coding, and creative tasks. Adapt your tone and response style to match the topic he introduces, and answer clearly and helpfully.";
-        if (memoryFacts.length > 0) {
-          systemPrompt += "\n\nLong-term memory context:\n" + memoryFacts.map((fact, index) => `${index + 1}. ${fact.fact}`).join('\n');
-        }
+            console.log(`[SOCKET TOOL APPROVAL] Requesting approval for "${toolName}" (ID: ${approvalId})`);
+            socket.emit('request-command-approval', {
+              id: approvalId,
+              command: `${toolName}: ${JSON.stringify(args)}`
+            });
 
-        // Format history for OpenRouter (Gemini) tool calling loop
-        const apiMessages = [
-          { role: "system", content: systemPrompt },
-          ...recentMessages.map((msg) => {
-            if (msg.content && typeof msg.content === 'object') {
-              if (msg.content.tool_calls) {
-                return {
-                  role: msg.role,
-                  content: msg.content.content || null,
-                  tool_calls: msg.content.tool_calls
-                };
-              }
-              if (msg.content.tool_use_id) {
-                return {
-                  role: "tool",
-                  tool_call_id: msg.content.tool_use_id,
-                  name: msg.content.name,
-                  content: msg.content.content
-                };
-              }
-              return { role: msg.role, content: JSON.stringify(msg.content) };
-            }
-            return { role: msg.role, content: msg.content };
-          })
-        ];
-
-        let loopGuard = 0;
-        let keepProcessing = true;
-        let finalResponseText = '';
-
-        while (keepProcessing && loopGuard < 5) {
-          loopGuard++;
-          console.log(`[SOCKET OPENROUTER LOOP] Requesting completions (Turn ${loopGuard})...`);
-
-          const modelMessage = await callOpenRouter(apiMessages);
-
-          // Append assistant response to query array
-          apiMessages.push(modelMessage);
-
-          // Save assistant response to DB
-          await db.saveMessage(activeConversationId, 'assistant', {
-            content: modelMessage.content || '',
-            tool_calls: modelMessage.tool_calls
-          });
-
-          if (modelMessage.tool_calls && modelMessage.tool_calls.length > 0) {
-            for (const toolCall of modelMessage.tool_calls) {
-              const { id: toolCallId, function: fn } = toolCall;
-              const toolName = fn.name;
-              const toolArgs = JSON.parse(fn.arguments || '{}');
-
-              console.log(`[SOCKET OPENROUTER LOOP] Executing tool: "${toolName}" with arguments: ${JSON.stringify(toolArgs)}`);
-              socket.emit('tool-status', { status: 'running', name: toolName, args: toolArgs });
-
-              let resultText = '';
-              if (toolName === 'get_current_datetime') {
-                resultText = getCurrentDateTime();
-              } else if (toolName === 'web_search') {
-                resultText = await executeWebSearch(toolArgs.query);
-              } else if (toolName === 'open_system_app') {
-                resultText = await executeOpenSystemApp(toolArgs.app_name);
-              } else if (toolName === 'open_url') {
-                resultText = await executeOpenUrl(toolArgs.url);
-              } else if (toolName === 'run_terminal_command') {
-                const command = toolArgs.command;
-                resultText = await new Promise((resolve) => {
-                  const approvalId = Math.random().toString(36).substring(2, 9);
-                  console.log(`[SOCKET TOOL APPROVAL] Requesting approval for command: "${command}" (ID: ${approvalId})`);
-                  
-                  socket.emit('request-command-approval', { command, id: approvalId });
-                  
-                  // Setup temporary listener
-                  const responseHandler = (response) => {
-                    if (response && response.id === approvalId) {
-                      socket.off('command-approval-response', responseHandler);
-                      if (response.approved) {
-                        console.log(`[SOCKET TOOL APPROVAL] Command APPROVED: "${command}"`);
-                        exec(command, (error, stdout, stderr) => {
-                          const output = (stdout || '') + (stderr || '');
-                          if (error) {
-                            resolve(`Command failed with exit code ${error.code}. Output:\n${output}`);
-                          } else {
-                            resolve(output || 'Command executed successfully with no output.');
-                          }
-                        });
-                      } else {
-                        console.log(`[SOCKET TOOL APPROVAL] Command DENIED: "${command}"`);
-                        resolve('Error: Execution denied by user.');
-                      }
-                    }
-                  };
-                  socket.on('command-approval-response', responseHandler);
+            const handler = (response) => {
+              if (response && response.id === approvalId) {
+                socket.off('command-approval-response', handler);
+                approvalObj.status = response.approved ? 'APPROVED' : 'REJECTED';
+                approvalObj.save().then(() => {
+                  resolve(response.approved);
                 });
-              } else {
-                resultText = `Error: Unknown tool "${toolName}"`;
               }
+            };
+            socket.on('command-approval-response', handler);
+          });
+        };
 
-              socket.emit('tool-status', { status: 'completed', name: toolName, result: resultText });
-
-              // Append tool response to query array
-              apiMessages.push({
-                role: "tool",
-                tool_call_id: toolCallId,
-                name: toolName,
-                content: resultText
-              });
-
-              // Save tool result to DB
-              await db.saveMessage(activeConversationId, 'tool', {
-                tool_use_id: toolCallId,
-                name: toolName,
-                content: resultText
+        // 3. Execute Task Runtime
+        const resultText = await runTask(task._id.toString(), {
+          history: recentMessages,
+          requestApproval,
+          onUpdate: (update) => {
+            // Stream updates to frontend UI
+            socket.emit('task-update', {
+              taskId: task._id.toString(),
+              ...update
+            });
+            if (update.status) {
+              let state = 'thinking';
+              if (update.status === 'COMPLETED') state = 'speaking';
+              if (update.status === 'FAILED') state = 'idle';
+              socket.emit('state-change', { state });
+            }
+            if (update.tool) {
+              socket.emit('tool-status', {
+                status: 'running',
+                name: update.tool,
+                args: update.args || {}
               });
             }
-          } else {
-            keepProcessing = false;
-            finalResponseText = modelMessage.content || '';
-
-            socket.emit('state-change', { state: 'speaking' });
-            socket.emit('dhiman-reply', { text: finalResponseText, conversationId: activeConversationId });
           }
-        }
+        });
+
+        // Save assistant response to DB
+        await db.saveMessage(activeConversationId, 'assistant', {
+          content: resultText
+        });
+
+        socket.emit('state-change', { state: 'speaking' });
+        socket.emit('dhiman-reply', { text: resultText, conversationId: activeConversationId });
 
       } catch (error) {
-        console.error("❌ Detailed Pipeline Processing Failure:", error);
+        console.error("❌ Socket agent execution failed:", error);
         socket.emit('state-change', { state: 'idle' });
         socket.emit('dhiman-reply', { 
-          text: `⚠️ Dhiman Core Pipeline Failure:\n\n${error.message || "Network handshake interruption."}\n\nCheck your configuration parameters and network connection.` 
+          text: `⚠️ Dhiman Core Execution Failure:\n\n${error.message}` 
         });
       }
     });

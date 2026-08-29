@@ -12,6 +12,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Initialize tools and routes
+require('./tools/allTools');
+app.use('/api/agent', require('./routes/agent'));
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
