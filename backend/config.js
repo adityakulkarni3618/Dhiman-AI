@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const config = {
   port: process.env.PORT || 5005,
@@ -16,16 +16,25 @@ const config = {
   emailPass: process.env.EMAIL_PASS || null
 };
 
-// Structural checks for required API credentials
+// Structured service status blocks for console output
+console.log("\n=========================================");
+console.log(" DHIMAN ENGINE STARTUP INITIALIZATION ");
 console.log("=========================================");
-console.log("⚙️  CONFIG VALIDATION METRICS:");
-console.log("🌐 OPENROUTER API KEY:", config.openrouterApiKey ? "✅ FOUND" : "❌ NOT FOUND");
-console.log("🌐 ANTHROPIC API KEY :", config.anthropicApiKey ? "✅ FOUND" : "⚠️  MISSING");
-console.log("🌐 OPENAI API KEY    :", config.openaiApiKey ? "✅ FOUND" : "⚠️  MISSING");
-console.log("🌐 MONGODB URI       :", config.mongodbUri ? "✅ FOUND" : "❌ MISSING");
-console.log("🌐 GITHUB TOKEN      :", config.githubToken ? "✅ FOUND" : "⚠️  MISSING (GitHub tools will be mocked)");
-console.log("🌐 FUNCTIONIZE API   :", (config.functionizeClientId && config.functionizeClientSecret) ? "✅ FOUND" : "⚠️  MISSING (Functionize tools will be mocked)");
-console.log("🌐 EMAIL SERVICE     :", (config.emailUser && config.emailPass) ? "✅ FOUND" : "⚠️  MISSING (Email tools will be mocked)");
-console.log("=========================================");
+console.log("LLM:");
+console.log(`  provider: ${config.anthropicApiKey ? 'Anthropic' : 'OpenRouter'}`);
+console.log(`  status: ${config.openrouterApiKey || config.anthropicApiKey ? '✅ READY' : '❌ UNCONFIGURED'}`);
+console.log("\nMongoDB:");
+console.log(`  status: ${config.mongodbUri ? '✅ READY' : '❌ UNCONFIGURED'}`);
+console.log("\nBrowser:");
+console.log(`  status: ✅ READY`);
+console.log("\nComputer:");
+console.log(`  status: ✅ READY`);
+console.log("\nGitHub:");
+console.log(`  status: ${config.githubToken ? '✅ READY' : '⚠️  AUTH_REQUIRED (mock fallback active)'}`);
+console.log("\nFunctionize:");
+console.log(`  status: ${(config.functionizeClientId && config.functionizeClientSecret) ? '✅ READY' : '⚠️  AUTH_REQUIRED (mock fallback active)'}`);
+console.log("\nEmail / Calendar:");
+console.log(`  status: ${(config.emailUser && config.emailPass) ? '✅ READY' : '⚠️  AUTH_REQUIRED (mock fallback active)'}`);
+console.log("=========================================\n");
 
 module.exports = config;

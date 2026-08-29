@@ -290,13 +290,21 @@ function registerSocketHandlers(io) {
           }
         });
 
+        // Format user-facing responses using execution evidence
+        const TaskStep = require('./models/TaskStep');
+        const updatedTask = await require('./models/Task').findById(task._id);
+        const steps = await TaskStep.find({ taskId: task._id }).sort({ stepIndex: 1 });
+        
+        const { formatResponse } = require('./agent/responseFormatter');
+        const naturalReply = formatResponse(updatedTask, steps);
+
         // Save assistant response to DB
         await db.saveMessage(activeConversationId, 'assistant', {
-          content: resultText
+          content: naturalReply
         });
 
         socket.emit('state-change', { state: 'speaking' });
-        socket.emit('dhiman-reply', { text: resultText, conversationId: activeConversationId });
+        socket.emit('dhiman-reply', { text: naturalReply, conversationId: activeConversationId });
 
       } catch (error) {
         console.error("❌ Socket agent execution failed:", error);

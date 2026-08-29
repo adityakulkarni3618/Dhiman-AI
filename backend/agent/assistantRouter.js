@@ -66,14 +66,7 @@ async function handleChatResponse(userInput, history = []) {
   }
 
   // Local offline stubs for graceful degradation
-  const clean = userInput.trim().toLowerCase();
-  if (clean.includes("hello") || clean.includes("hi")) {
-    return "Hello! I'm Dhiman. My language-model service is currently offline, but my local computer and automation capabilities remain active.";
-  }
-  if (clean.includes("who are you")) {
-    return "I am Dhiman, your personal AI operating layer assistant.";
-  }
-  return "My core LLM API keys are currently unconfigured, but I'm ready to run local tools or system commands when requested.";
+  return "I'm currently unable to answer general questions because my language model is unavailable. My local computer and automation tools are still available.";
 }
 
 module.exports = {

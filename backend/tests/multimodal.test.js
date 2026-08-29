@@ -103,6 +103,25 @@ async function runMultimodalTests() {
   await Notification.deleteOne({ _id: savedNotify._id });
   console.log("   ✅ Scheduler and Notification schemas successfully tested.");
 
+  // 5. Test Response Formatter
+  console.log("\n🧪 Testing responseFormatter actions mapping...");
+  const { formatResponse } = require('../agent/responseFormatter');
+  
+  const mockTask = { goal: "Open VS Code", status: "COMPLETED", result: "" };
+  const mockSteps = [
+    { action: { tool: "application_launch" }, status: "COMPLETED", verified: true }
+  ];
+  const resp1 = formatResponse(mockTask, mockSteps);
+  assert.strictEqual(resp1, "VS Code is open.");
+
+  const mockFailTask = { goal: "Open VS Code", status: "FAILED", error: "Process timed out" };
+  const mockFailSteps = [
+    { action: { tool: "application_launch" }, status: "FAILED", error: "Visual Studio Code could not be located" }
+  ];
+  const resp2 = formatResponse(mockFailTask, mockFailSteps);
+  assert.strictEqual(resp2, "I couldn't complete that because: Visual Studio Code could not be located.");
+  console.log("   ✅ Response Formatter successfully generated natural summaries from verified steps.");
+
   console.log("\n🎉 ALL MULTIMODAL ASSISTANT TESTS PASSED SUCCESSFULLY!");
   process.exit(0);
 }
