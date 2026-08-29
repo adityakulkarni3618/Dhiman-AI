@@ -72,6 +72,11 @@
 - Integrated contextual resolution mappings for conversational active project contexts and pronouns ("run it", "stop it").
 - Upgraded `backend/agent/verifier.js` to run goal-specific programmatic checks on active process properties.
 - Added background running and termination capabilities inside `backend/tools/codingTools.js`.
+- Implemented `backend/agent/processManager.js` to systematically track and kill subprocess trees on Windows.
+- Integrated net TCP connection port verifiers inside `backend/agent/verifier.js` to verify HTTP health states of launched dev servers.
+- Registered unified `computer_observe` tool inside `backend/tools/computerTools.js` exposing screenshot, process, and window listings.
+- Improved the final response formatter to include active port numbers inside project run confirmations.
+
 
 
 
