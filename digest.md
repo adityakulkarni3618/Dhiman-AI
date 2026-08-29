@@ -64,5 +64,10 @@
 - Implemented `backend/agent/assistantRouter.js` separating Conversational Mode from Agent Mode.
 - Integrated process-level Windows launch verification inside the `application_launch` tool using PowerShell `Get-Process`.
 - Redefined fallback summary strings to avoid exposing internal LLM credentials warning blocks to the user.
+- Created `backend/agent/goalManager.js` implementing goal state tracking and pause/resume/cancel controllers.
+- Integrated Dynamic Capability Selection filtering within `backend/agent/planner.js` and the tool registry.
+- Implemented `backend/agent/appResolver.js` for generic Windows app installation and path discovery.
+- Upgraded the Agent Runtime task loop to handle cancellations, pause triggers, and dynamic replanning on tool failures.
+
 
 
