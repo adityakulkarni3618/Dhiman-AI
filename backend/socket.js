@@ -218,7 +218,20 @@ function registerSocketHandlers(io) {
 
         const recentMessages = await db.getRecentMessages(activeConversationId, 12);
         
-        // 1. Create a task session
+        // 1. Classify Intent via AssistantRouter
+        const { classifyIntent, handleChatResponse } = require('./agent/assistantRouter');
+        const intent = await classifyIntent(userInput, recentMessages);
+        console.log(`[ASSISTANT ROUTER] Classified query intent as: "${intent}" for request: "${userInput}"`);
+
+        if (intent === 'CHAT') {
+          const chatReply = await handleChatResponse(userInput, recentMessages);
+          await db.saveMessage(activeConversationId, 'assistant', { content: chatReply });
+          socket.emit('state-change', { state: 'speaking' });
+          socket.emit('dhiman-reply', { text: chatReply, conversationId: activeConversationId });
+          return;
+        }
+
+        // 2. Create a task session
         const task = await taskManager.createTask(userInput, 'MEDIUM', activeConversationId);
         
         // 2. Setup interactive socket approval callback

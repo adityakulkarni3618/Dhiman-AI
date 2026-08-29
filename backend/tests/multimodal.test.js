@@ -18,8 +18,28 @@ async function runMultimodalTests() {
     await mongoose.connect(config.mongodbUri);
   }
 
-  // 1. Test Dynamic Tool Discovery
-  console.log("🧪 Testing Dynamic Tool Discovery...");
+  // 1. Test Intent Classification Routing
+  console.log("🧪 Testing Assistant Intent Router...");
+  const { classifyIntent, handleChatResponse } = require('../agent/assistantRouter');
+  
+  const chatIntent1 = await classifyIntent("Hello.");
+  assert.strictEqual(chatIntent1, 'CHAT');
+
+  const actionIntent1 = await classifyIntent("Open VS Code.");
+  assert.strictEqual(actionIntent1, 'ACTION');
+
+  const chatIntent2 = await classifyIntent("What is MongoDB?");
+  assert.strictEqual(chatIntent2, 'CHAT');
+
+  const actionIntent2 = await classifyIntent("Commit changes to git");
+  assert.strictEqual(actionIntent2, 'ACTION');
+
+  const chatReply = await handleChatResponse("Hello");
+  assert(chatReply && chatReply.length > 5);
+  console.log("   ✅ Intent routing successfully separated CHAT from ACTION workflows.");
+
+  // 2. Test Dynamic Tool Discovery
+  console.log("\n🧪 Testing Dynamic Tool Discovery...");
   const gitTools = getLLMToolDefinitionsFiltered("check my git status and repo");
   assert(gitTools.some(t => t.function.name === 'git_status'));
   assert(!gitTools.some(t => t.function.name === 'send_email'));

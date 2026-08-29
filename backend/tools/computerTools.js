@@ -170,7 +170,29 @@ registerTool({
     const execName = appsMap[args.appKeyword];
     const script = `Start-Process "${execName}"`;
     const res = await runPowerShell(script);
-    return res.success ? `Application "${args.appKeyword}" launched successfully.` : `Failed to launch application: ${res.error}`;
+    if (!res.success) {
+      return `Failed to launch application: ${res.error}`;
+    }
+
+    // Verify execution process existence
+    let processKeyword = args.appKeyword;
+    if (args.appKeyword === 'vscode') processKeyword = 'code';
+    
+    let launched = false;
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      const verifyScript = `Get-Process -Name "${processKeyword}" -ErrorAction SilentlyContinue`;
+      const verifyRes = await runPowerShell(verifyScript);
+      if (verifyRes.success && verifyRes.output) {
+        launched = true;
+        break;
+      }
+    }
+
+    if (launched) {
+      return `Application "${args.appKeyword}" launched and verified successfully.`;
+    }
+    return `Application "${args.appKeyword}" launch command executed, but process could not be verified.`;
   }
 });
 
