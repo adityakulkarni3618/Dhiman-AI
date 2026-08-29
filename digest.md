@@ -52,3 +52,5 @@
 - Set up agent REST routes (`/api/agent/*`) and updated WebSocket connections to leverage the `runTask` runtime.
 - Enhanced the React frontend chat interface to display task progress steps and timelines.
 - Added unit test suite `backend/tests/agent.test.js` validating registry safety policies.
+- Implemented integration test suite `backend/tests/integration.test.js` verifying task plans, terminal approvals, and WebSocket broadcasts.
+- Added programmatic fallback safety overrides inside the agent runtime loop for missing credentials environments.
