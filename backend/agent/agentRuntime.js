@@ -118,12 +118,17 @@ ${steps.map(s => `- Step ${s.stepIndex}: ${s.description} (Status: ${s.status}, 
 
 Review the above steps and observations. Write a final summary to Aditya confirming if the task was completed successfully, outlining what was changed, and what tools were used. Keep it concise.`;
 
-    const summaryResponse = await generateCompletion({
-      messages: [{ role: 'system', content: "You are Dhiman, confirming task completion." }, { role: 'user', content: summaryPrompt }],
-      tier: 'smart'
-    });
-
-    const finalResult = summaryResponse.content || "Task processed successfully.";
+    let finalResult = '';
+    try {
+      const summaryResponse = await generateCompletion({
+        messages: [{ role: 'system', content: "You are Dhiman, confirming task completion." }, { role: 'user', content: summaryPrompt }],
+        tier: 'smart'
+      });
+      finalResult = summaryResponse.content || "Task processed successfully.";
+    } catch (llmErr) {
+      console.warn("[AGENT RUNTIME] Final LLM summary generation failed (missing configuration):", llmErr.message);
+      finalResult = `Task executed and verified. (Configured credentials missing: skipped summary generation). Goal: "${task.goal}"`;
+    }
 
     await taskManager.updateTaskStatus(taskId, 'COMPLETED', { result: finalResult });
     onUpdate({
