@@ -15,6 +15,7 @@ app.use(express.json());
 // Initialize tools and routes
 require('./tools/allTools');
 app.use('/api/agent', require('./routes/agent'));
+app.use('/api/voice', require('./routes/voice'));
 
 const server = http.createServer(app);
 const io = new Server(server, {
