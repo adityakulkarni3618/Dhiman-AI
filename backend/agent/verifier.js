@@ -28,9 +28,21 @@ async function verifyStep(step, observation) {
     const { getContext } = require('./entityResolver');
     const ctx = getContext();
     if (ctx.activeProject) {
+      const { execSync } = require('child_process');
+      let ports = [];
+      try {
+        const out = execSync('powershell -Command "Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort"').toString();
+        ports = out.split('\n').map(p => parseInt(p.trim())).filter(p => !isNaN(p));
+      } catch (err) {
+        // ignore
+      }
+      const devPorts = [3000, 3001, 5173, 8000, 8080];
+      const activeDevPort = devPorts.find(p => ports.includes(p));
+      const healthDetails = activeDevPort ? ` (Detected active TCP port: ${activeDevPort})` : '';
+
       return {
         verified: true,
-        details: `Verified: Active project at "${ctx.activeProject}" is running successfully.`
+        details: `Verified: Active project at "${ctx.activeProject}" is running.${healthDetails}`
       };
     }
   }

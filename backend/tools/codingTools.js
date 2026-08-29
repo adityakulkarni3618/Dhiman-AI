@@ -126,7 +126,7 @@ registerTool({
   }
 });
 
-const activeProcesses = new Map();
+const processManager = require('../agent/processManager');
 
 // ==========================================
 // 5. CODING_RUN_PROJECT
@@ -149,7 +149,8 @@ registerTool({
     const currentMeta = projects.find(p => p.path === ctx.activeProject);
     const runCmd = currentMeta ? currentMeta.devCommand : 'npm run dev';
 
-    if (activeProcesses.has(ctx.activeProject)) {
+    const existing = processManager.getProcessByCwd(ctx.activeProject);
+    if (existing) {
       return `Project is already running at "${ctx.activeProject}".`;
     }
 
@@ -160,12 +161,14 @@ registerTool({
       detached: true
     });
 
-    activeProcesses.set(ctx.activeProject, child);
+    processManager.registerProcess(child.pid, {
+      command: runCmd,
+      cwd: ctx.activeProject
+    });
     
     await new Promise(r => setTimeout(r, 1500));
     
     if (child.killed) {
-      activeProcesses.delete(ctx.activeProject);
       return `Failed to start project. Process terminated immediately.`;
     }
 
@@ -189,19 +192,12 @@ registerTool({
       return "Error: No active project is set.";
     }
 
-    const child = activeProcesses.get(ctx.activeProject);
-    if (!child) {
+    const proc = processManager.getProcessByCwd(ctx.activeProject);
+    if (!proc) {
       return `No running process found for active project at "${ctx.activeProject}".`;
     }
 
-    const { execSync } = require('child_process');
-    try {
-      execSync(`taskkill /pid ${child.pid} /f /t`);
-    } catch (err) {
-      child.kill();
-    }
-
-    activeProcesses.delete(ctx.activeProject);
+    processManager.stopProcess(proc.pid);
     return `Successfully stopped project process tree running at "${ctx.activeProject}".`;
   }
 });

@@ -141,6 +141,15 @@ async function runMultimodalTests() {
   assert.strictEqual(resp2, "I couldn't complete that because: Visual Studio Code could not be located.");
   console.log("   ✅ Response Formatter successfully generated natural summaries from verified steps.");
 
+  // 6. Test computer_observe tool
+  console.log("\n🧪 Testing computer_observe execution state...");
+  const observeTool = require('../tools/registry').getTool('computer_observe');
+  const observeRes = await observeTool.execute({ scope: "window" });
+  const parsedRes = JSON.parse(observeRes);
+  assert(parsedRes.timestamp);
+  assert(Array.isArray(parsedRes.windows));
+  console.log("   ✅ Unified computer_observe tool executed and compiled environment variables successfully.");
+
   console.log("\n🎉 ALL MULTIMODAL ASSISTANT TESTS PASSED SUCCESSFULLY!");
   process.exit(0);
 }

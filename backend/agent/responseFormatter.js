@@ -31,7 +31,10 @@ function formatResponse(task, steps = []) {
   if (goalLower.includes("run") || goalLower.includes("start")) {
     const runStep = steps.find(s => s.action?.tool === 'coding_run_project');
     if (runStep && runStep.status === 'COMPLETED' && projectName) {
-      return `Project ${projectName} is running.`;
+      const details = runStep.verificationDetails || '';
+      const portMatch = details.match(/active TCP port: (\d+)/);
+      const portText = portMatch ? ` on port ${portMatch[1]}` : '';
+      return `Project ${projectName} is running${portText}.`;
     }
   }
 

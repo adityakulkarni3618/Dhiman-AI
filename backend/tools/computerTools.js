@@ -215,3 +215,56 @@ registerTool({
     return res.success ? `Successfully closed process "${args.processName}".` : `Failed to close process: ${res.error}`;
   }
 });
+
+// ==========================================
+// 7. COMPUTER_OBSERVE
+// ==========================================
+registerTool({
+  name: "computer_observe",
+  description: "Collects the current state parameters of the Windows host machine (active window title, process listings, running dev server ports).",
+  category: "computer",
+  parameters: {
+    type: "object",
+    properties: {
+      scope: { type: "string", enum: ["screenshot", "window", "process", "full"], default: "full" }
+    }
+  },
+  riskLevel: "SAFE",
+  execute: async (args) => {
+    const scope = args.scope || 'full';
+    const state = {
+      timestamp: new Date().toISOString()
+    };
+
+    if (scope === 'window' || scope === 'full') {
+      const winScript = `Get-Process | Where-Object { $_.MainWindowTitle } | Select-Object -Property Id, ProcessName, MainWindowTitle | ConvertTo-Json`;
+      const winRes = await runPowerShell(winScript);
+      state.windows = winRes.success ? JSON.parse(winRes.output || '[]') : [];
+    }
+
+    if (scope === 'process' || scope === 'full') {
+      const procScript = `Get-Process | Select-Object -Property Id, ProcessName | ConvertTo-Json`;
+      const procRes = await runPowerShell(procScript);
+      state.processes = procRes.success ? JSON.parse(procRes.output || '[]').slice(0, 30) : [];
+    }
+
+    if (scope === 'screenshot' || scope === 'full') {
+      const targetPath = path.resolve('computer_state_check.png');
+      const script = `
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+        $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.Bounds.X, $screen.Bounds.Y, 0, 0, $bitmap.Size)
+        $bitmap.Save('${targetPath.replace(/\\/g, '\\\\')}', [System.Drawing.Imaging.ImageFormat]::Png)
+        $graphics.Dispose()
+        $bitmap.Dispose()
+      `;
+      await runPowerShell(script);
+      state.screenshotPath = targetPath;
+    }
+
+    return JSON.stringify(state, null, 2);
+  }
+});
