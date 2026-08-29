@@ -1,5 +1,5 @@
 const { generateCompletion } = require('../services/llm/router');
-const { getLLMToolDefinitions } = require('../tools/registry');
+const { getLLMToolDefinitionsFiltered } = require('../tools/registry');
 
 /**
  * Creates an initial execution plan based on the user's goal.
@@ -8,7 +8,7 @@ const { getLLMToolDefinitions } = require('../tools/registry');
  * @returns {Promise<Array>} A structured plan list.
  */
 async function generatePlan(goal, history = []) {
-  const tools = getLLMToolDefinitions();
+  const tools = getLLMToolDefinitionsFiltered(goal);
   
   const systemPrompt = `You are the lead planner for Dhiman, an autonomous personal assistant. 
 Your job is to break down the user's high-level goal into a sequence of concrete steps.

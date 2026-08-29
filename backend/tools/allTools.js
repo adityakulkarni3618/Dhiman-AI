@@ -329,3 +329,15 @@ registerTool({
 // 13. BROWSER AUTOMATION TOOLS
 // ==========================================
 require('./browserTools');
+
+// ==========================================
+// 14. COMPUTER CONTROL TOOLS
+// ==========================================
+require('./computerTools');
+
+// ==========================================
+// 15. CODING, GIT, & GITHUB TOOLS
+// ==========================================
+require('./codingTools');
+require('./gitTools');
+require('./githubTools');
