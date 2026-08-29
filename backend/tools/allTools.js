@@ -324,3 +324,8 @@ registerTool({
     return `Email successfully queued and sent to ${args.to} under subject "${args.subject}".`;
   }
 });
+
+// ==========================================
+// 13. BROWSER AUTOMATION TOOLS
+// ==========================================
+require('./browserTools');
