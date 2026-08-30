@@ -1,6 +1,15 @@
 const { generateCompletion } = require('../services/llm/router');
 const config = require('../config');
 
+function sanitizeContent(content) {
+  if (!content) return '';
+  if (typeof content === 'string') return content;
+  if (typeof content === 'object') {
+    return content.content || content.text || JSON.stringify(content);
+  }
+  return String(content);
+}
+
 /**
  * Classifies intent into CHAT or ACTION
  */
@@ -28,7 +37,7 @@ Classify the user's input into one of two categories:
 IMPORTANT: If the user request is hybrid and contains BOTH a conversational question and a request for action (e.g., "Explain what Next.js is and open my Next.js project", "Search for the latest AI news and save the summary as a note"), you MUST classify it as ACTION.
 
 Output ONLY the word CHAT or ACTION. Do not provide any markdown, spaces, or additional text.` },
-        ...history.slice(-4).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content })),
+        ...history.slice(-4).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: sanitizeContent(h.content) })),
         { role: 'user', content: userInput }
       ];
       const res = await generateCompletion({ messages, tier: 'smart' });
@@ -57,7 +66,7 @@ async function handleChatResponse(userInput, history = []) {
     try {
       const messages = [
         { role: 'system', content: "You are Dhiman, a highly capable personal AI assistant. Reply to the user's conversational message naturally and concisely." },
-        ...history.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content })),
+        ...history.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: sanitizeContent(h.content) })),
         { role: 'user', content: userInput }
       ];
       const res = await generateCompletion({ messages, tier: 'smart' });
@@ -75,4 +84,5 @@ module.exports = {
   classifyIntent,
   handleChatResponse
 };
+
 
