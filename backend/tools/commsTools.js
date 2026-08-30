@@ -94,7 +94,6 @@ registerTool({
       // SMTP logic would send email here using standard nodemailer
       return `Email sent successfully to ${args.to} via SMTP: "${args.subject}"`;
     }
-    // Gratefully fallback to log notification
-    return `SMTP Credentials not configured. Simulated email successfully sent to ${args.to} with subject "${args.subject}".`;
+    return `Failed to send email: SMTP credentials (EMAIL_USER/EMAIL_PASS) are not configured on the server.`;
   }
 });

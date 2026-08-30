@@ -47,7 +47,7 @@ registerTool({
       return `Functionize test ${args.testId} triggered successfully. Execution ID: ${data.executionId}`;
     } catch (err) {
       if (err.message.includes("credentials missing")) {
-        return `MISCONFIGURED: Functionize integration requires client credentials in env variables. (Simulation Output: Test suite triggered successfully in mock sandbox).`;
+        return `Failed to run Functionize test: FUNCTIONIZE_CLIENT_ID and FUNCTIONIZE_CLIENT_SECRET are not configured on the server.`;
       }
       return `Functionize execution failed: ${err.message}`;
     }
@@ -75,7 +75,7 @@ registerTool({
       return `Functionize execution report: Status: ${data.status}, Passed: ${data.passedAssertions}/${data.totalAssertions}`;
     } catch (err) {
       if (err.message.includes("credentials missing")) {
-        return `MISCONFIGURED: Functionize credentials missing. (Simulation output: status: 100% OK. Details: all assertions met).`;
+        return `Failed to fetch Functionize result: FUNCTIONIZE_CLIENT_ID and FUNCTIONIZE_CLIENT_SECRET are not configured on the server.`;
       }
       return `Failed to fetch Functionize result: ${err.message}`;
     }

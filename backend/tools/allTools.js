@@ -262,68 +262,7 @@ registerTool({
   }
 });
 
-// ==========================================
-// 10. GITHUB INTEGRATION
-// ==========================================
-registerTool({
-  name: "github_query",
-  description: "Fetch mock repository actions, pull requests, and issues logs from GitHub integration.",
-  category: "github",
-  parameters: {
-    type: "object",
-    properties: {
-      repo: { type: "string", description: "GitHub Repository Name." },
-      queryType: { type: "string", enum: ["ISSUES", "PRS", "COMMITS"] }
-    },
-    required: ["repo", "queryType"]
-  },
-  riskLevel: "SAFE",
-  execute: async (args) => {
-    return `GitHub Query Response (${args.queryType} for ${args.repo}): 1 active Issue: 'Fix deployment scripts config parameters'. 0 open Pull Requests.`;
-  }
-});
 
-// ==========================================
-// 11. FUNCTIONIZE INTEGRATION
-// ==========================================
-registerTool({
-  name: "functionize_run_test",
-  description: "Calls Functionize API/CLI hooks to run specialized regression and deployment validation test workflows.",
-  category: "functionize",
-  parameters: {
-    type: "object",
-    properties: {
-      testSuiteName: { type: "string", description: "Target test suite name to run." }
-    },
-    required: ["testSuiteName"]
-  },
-  riskLevel: "CONFIRM",
-  execute: async (args) => {
-    return `Functionize execution successful. Test suite "${args.testSuiteName}" passed. status: 100% OK. Details: all assertions met.`;
-  }
-});
-
-// ==========================================
-// 12. EMAIL / CALENDAR MOCK INTERFACES
-// ==========================================
-registerTool({
-  name: "send_email",
-  description: "Drafts and sends emails to configured recipients.",
-  category: "communication",
-  parameters: {
-    type: "object",
-    properties: {
-      to: { type: "string", description: "Recipient email." },
-      subject: { type: "string" },
-      body: { type: "string" }
-    },
-    required: ["to", "subject", "body"]
-  },
-  riskLevel: "CONFIRM",
-  execute: async (args) => {
-    return `Email successfully queued and sent to ${args.to} under subject "${args.subject}".`;
-  }
-});
 
 // ==========================================
 // 13. BROWSER AUTOMATION TOOLS
