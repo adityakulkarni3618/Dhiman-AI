@@ -27,6 +27,13 @@ async function generatePlan(goal, history = []) {
   if (/\b(test|functionize|regression|assert)\b/.test(clean)) {
     capabilities.push('TESTING');
   }
+  if (/\b(note|notes|remember|save)\b/.test(clean)) {
+    capabilities.push('NOTES');
+  }
+  if (/\b(remind|reminder|schedule|every|tomorrow|monday)\b/.test(clean)) {
+    capabilities.push('SCHEDULER');
+  }
+
 
   // Deduplicate capabilities
   capabilities = [...new Set(capabilities)];

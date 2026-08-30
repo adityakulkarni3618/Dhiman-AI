@@ -59,7 +59,9 @@ const categoryToCapabilities = {
   coding: ['CODING', 'TESTING'],
   github: ['GIT', 'GITHUB'],
   communication: ['EMAIL', 'CALENDAR'],
-  functionize: ['TESTING']
+  functionize: ['TESTING'],
+  notes: ['NOTES'],
+  scheduler: ['SCHEDULER']
 };
 
 /**
@@ -90,6 +92,13 @@ function getLLMToolDefinitionsFiltered(goal = '') {
     categories.add('functionize');
     categories.add('browser');
   }
+  if (/\b(note|notes|remember|save)\b/.test(query)) {
+    categories.add('notes');
+  }
+  if (/\b(remind|reminder|schedule|every|tomorrow|monday)\b/.test(query)) {
+    categories.add('scheduler');
+  }
+
 
   // Filter tools belonging to the matched categories
   const filtered = allTools.filter(t => categories.has(t.category) || t.category === 'system');

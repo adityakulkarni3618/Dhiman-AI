@@ -347,3 +347,5 @@ require('./githubTools');
 // ==========================================
 require('./commsTools');
 require('./functionizeTools');
+require('./noteTools');
+
