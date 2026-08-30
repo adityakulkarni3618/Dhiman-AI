@@ -1,9 +1,19 @@
+const { getContext } = require('./entityResolver');
+
 /**
  * Combines history, memory facts, task steps, and current details to build a context frame.
  */
 function buildSystemContext(task, steps = [], memoryFacts = []) {
+  const activeCtx = getContext();
   let context = `You are Dhiman, Aditya's production-grade autonomous personal AI assistant. 
 Your objective is to accomplish the user's goals using planning, executing actions, observing results, and verifying the work.
+
+CURRENT ACTIVE CONTEXT:
+- Active Project: ${activeCtx.activeProject || 'None'}
+- Active File: ${activeCtx.activeFile || 'None'}
+- Active Application: ${activeCtx.activeApplication || 'None'}
+- Active Browser Tab/URL: ${activeCtx.activeTab || 'None'}
+- Active Error: ${activeCtx.activeError || 'None'}
 
 CURRENT GOAL: "${task.goal}"
 STATUS: ${task.status}
@@ -37,3 +47,4 @@ EXECUTION PLAN STATUS:`;
 module.exports = {
   buildSystemContext
 };
+

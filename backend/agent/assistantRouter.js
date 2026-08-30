@@ -8,11 +8,11 @@ async function classifyIntent(userInput, history = []) {
   const clean = userInput.trim().toLowerCase();
   
   // Basic deterministic chat keywords
-  if (/^(hello|hi|hey|good morning|good afternoon|good evening|thanks|thank you|ok|okay|bye|goodbye|who are you|what is your name)$/.test(clean)) {
+  if (/^(hello|hi|hey|good morning|good afternoon|good evening|thanks|thank you|ok|okay|bye|goodbye|who are you|what is your name|how are you)$/.test(clean)) {
     return 'CHAT';
   }
 
-  if (/^(what is mongodb|what is react|explain what an ai agent is|what is a database|how are you|what is dhiman)$/.test(clean)) {
+  if (/^(what is mongodb|what is react|explain what an ai agent is|what is a database|what is dhiman|explain tcp\/ip|explain tcpip)$/.test(clean)) {
     return 'CHAT';
   }
 
@@ -22,8 +22,10 @@ async function classifyIntent(userInput, history = []) {
       const messages = [
         { role: 'system', content: `You are the intent classifier for Dhiman-AI.
 Classify the user's input into one of two categories:
-- CHAT: Casual conversations, simple greetings, general explanations (e.g. "What is React", "Explain B-Trees", "Who are you").
-- ACTION: Requests to open/close apps, capture screenshots, search the web, inspect repositories, write code, execute git commits, or launch browser instances.
+- CHAT: Casual conversations, greetings, general questions, explanations of concepts (e.g. "What is React", "Explain B-Trees", "Who are you", "Explain TCP/IP").
+- ACTION: Requests to perform computer automation, run commands, open/close/focus apps, capture screenshots, search the web, manage files, write code, commit to Git, set reminders/tasks/notes/calendar, send messages/emails.
+
+IMPORTANT: If the user request is hybrid and contains BOTH a conversational question and a request for action (e.g., "Explain what Next.js is and open my Next.js project", "Search for the latest AI news and save the summary as a note"), you MUST classify it as ACTION.
 
 Output ONLY the word CHAT or ACTION. Do not provide any markdown, spaces, or additional text.` },
         ...history.slice(-4).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content })),
@@ -40,7 +42,7 @@ Output ONLY the word CHAT or ACTION. Do not provide any markdown, spaces, or add
   }
 
   // Fallback heuristics: check key action verbs
-  if (/\b(open|launch|close|screenshot|click|type|search|run|test|build|compile|git|commit|push|pull|github|calendar|email|schedule|task|monitor|delete|remove|patch)\b/.test(clean)) {
+  if (/\b(open|launch|close|screenshot|click|type|search|run|test|build|compile|git|commit|push|pull|github|calendar|email|schedule|task|monitor|delete|remove|patch|note|remind)\b/.test(clean)) {
     return 'ACTION';
   }
 
@@ -73,3 +75,4 @@ module.exports = {
   classifyIntent,
   handleChatResponse
 };
+
