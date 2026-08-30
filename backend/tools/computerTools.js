@@ -173,8 +173,11 @@ registerTool({
     let processKeyword = args.appKeyword.toLowerCase();
     if (processKeyword.includes('code') || processKeyword.includes('vs')) processKeyword = 'code';
     else if (processKeyword.includes('notepad')) processKeyword = 'notepad';
-    else if (processKeyword.includes('calc')) processKeyword = 'calculator';
+    else if (processKeyword.includes('calc') || processKeyword.includes('calculator')) processKeyword = 'win32calc*';
     else if (processKeyword.includes('chrome')) processKeyword = 'chrome';
+    else if (processKeyword.includes('paint') || processKeyword.includes('mspaint')) processKeyword = 'mspaint';
+    else if (processKeyword.includes('spotify')) processKeyword = 'spotify';
+    else if (processKeyword.includes('explorer') || processKeyword.includes('file')) processKeyword = 'explorer';
     
     let launched = false;
     for (let i = 0; i < 6; i++) {

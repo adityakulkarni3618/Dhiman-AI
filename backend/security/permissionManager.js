@@ -21,9 +21,14 @@ function checkPermission(toolName, args = {}) {
     const cmd = args.command.toLowerCase();
     
     // Dangerous patterns
-    const dangerousRegex = /\b(rm\s+-rf|format|mkfs|dd\b|shutdown|reboot|del\s+\/s\s+\/q)\b/;
+    const dangerousRegex = /\b(rm\s+-rf|format|mkfs|dd\b|shutdown|reboot|del\s+\/s\s+\/q|del\s+\/f|rd\s+\/s\s+\/q|rmdir\s+\/s\s+\/q)\b/;
     if (dangerousRegex.test(cmd)) {
       console.warn(`[SECURITY POLICY] Command "${args.command}" blocked due to destructive signature.`);
+      return 'BLOCK';
+    }
+
+    // Guard against prompt injections trying to bypass safety rules or delete the main project
+    if (cmd.includes("ignore") && cmd.includes("safety")) {
       return 'BLOCK';
     }
   }
@@ -38,3 +43,4 @@ function checkPermission(toolName, args = {}) {
 module.exports = {
   checkPermission
 };
+

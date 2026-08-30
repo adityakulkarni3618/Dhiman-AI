@@ -165,6 +165,12 @@ registerTool({
       command: runCmd,
       cwd: ctx.activeProject
     });
+
+    const { updateContext } = require('../agent/entityResolver');
+    updateContext({
+      activeProcess: child.pid,
+      activeServer: `PID ${child.pid} CWD ${ctx.activeProject}`
+    });
     
     await new Promise(r => setTimeout(r, 1500));
     

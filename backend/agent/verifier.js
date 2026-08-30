@@ -24,6 +24,83 @@ async function verifyStep(step, observation) {
     }
   }
 
+  if (action.tool === 'delete_file' && action.args?.filepath) {
+    const fullPath = path.resolve(action.args.filepath);
+    if (!fs.existsSync(fullPath)) {
+      return {
+        verified: true,
+        details: `Verified: File successfully deleted from path "${action.args.filepath}"`
+      };
+    } else {
+      return {
+        verified: false,
+        details: `Verification Failed: File still exists at "${action.args.filepath}"`
+      };
+    }
+  }
+
+  if (action.tool === 'note_create' && action.args?.title) {
+    try {
+      const Note = require('../models/Note');
+      const note = await Note.findOne({ title: action.args.title });
+      if (note) {
+        return {
+          verified: true,
+          details: `Verified: Persistent note "${action.args.title}" exists in MongoDB.`
+        };
+      }
+    } catch (err) {
+      // fallback
+    }
+    return {
+      verified: false,
+      details: `Verification Failed: Note "${action.args.title}" could not be verified in MongoDB.`
+    };
+  }
+
+  if (action.tool === 'note_delete' && action.args?.noteIdentifier) {
+    try {
+      const Note = require('../models/Note');
+      let note;
+      if (action.args.noteIdentifier.match(/^[0-9a-fA-F]{24}$/)) {
+        note = await Note.findById(action.args.noteIdentifier);
+      } else {
+        note = await Note.findOne({ title: action.args.noteIdentifier });
+      }
+      if (!note) {
+        return {
+          verified: true,
+          details: `Verified: Note "${action.args.noteIdentifier}" was deleted or does not exist.`
+        };
+      }
+    } catch (err) {
+      // fallback
+    }
+    return {
+      verified: false,
+      details: `Verification Failed: Note "${action.args.noteIdentifier}" still exists in MongoDB.`
+    };
+  }
+
+  if (action.tool === 'schedule_task' && action.args?.goal) {
+    try {
+      const { ScheduledTask } = require('../tasks/taskQueue');
+      const sTask = await ScheduledTask.findOne({ goal: action.args.goal });
+      if (sTask) {
+        return {
+          verified: true,
+          details: `Verified: Scheduled task for goal "${action.args.goal}" was successfully persisted.`
+        };
+      }
+    } catch (err) {
+      // fallback
+    }
+    return {
+      verified: false,
+      details: `Verification Failed: Scheduled task was not found in MongoDB.`
+    };
+  }
+
   if (action.tool === 'coding_run_project') {
     const { getContext } = require('./entityResolver');
     const ctx = getContext();
@@ -59,7 +136,7 @@ async function verifyStep(step, observation) {
     let processKeyword = appKeyword;
     if (appKeyword.includes('code') || appKeyword.includes('vs')) processKeyword = 'code';
     else if (appKeyword.includes('notepad')) processKeyword = 'notepad';
-    else if (appKeyword.includes('calc')) processKeyword = 'calculator';
+    else if (appKeyword.includes('calc') || appKeyword.includes('calculator')) processKeyword = 'win32calc*';
     else if (appKeyword.includes('chrome')) processKeyword = 'chrome';
 
     const { execSync } = require('child_process');
@@ -118,3 +195,4 @@ Provide ONLY the JSON response without markdown wrapping.`;
 module.exports = {
   verifyStep
 };
+
