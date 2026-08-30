@@ -64,8 +64,25 @@ Output ONLY the word CHAT or ACTION. Do not provide any markdown, spaces, or add
 async function handleChatResponse(userInput, history = []) {
   if (config.openrouterApiKey || config.anthropicApiKey) {
     try {
+      let memoryFacts = [];
+      try {
+        const { getEmbedding } = require('../services/ai');
+        const db = require('../db');
+        const queryEmbedding = await getEmbedding(userInput);
+        if (queryEmbedding) {
+          memoryFacts = await db.fetchRelevantMemoryFacts(queryEmbedding, 4);
+        }
+      } catch (memErr) {
+        console.warn("[INTENT ROUTER] Skipping long-term memory retrieval for chat response:", memErr.message);
+      }
+
+      let systemContent = "You are Dhiman, a highly capable personal AI assistant. Reply to the user's conversational message naturally and concisely.";
+      if (memoryFacts && memoryFacts.length > 0) {
+        systemContent += "\n\nRelevant user facts & preferences (from long-term memory):\n" + memoryFacts.map((f, i) => `- ${f.fact}`).join('\n');
+      }
+
       const messages = [
-        { role: 'system', content: "You are Dhiman, a highly capable personal AI assistant. Reply to the user's conversational message naturally and concisely." },
+        { role: 'system', content: systemContent },
         ...history.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: sanitizeContent(h.content) })),
         { role: 'user', content: userInput }
       ];
