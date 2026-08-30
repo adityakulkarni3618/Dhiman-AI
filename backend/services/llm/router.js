@@ -184,27 +184,39 @@ async function generateCompletion({ messages, tools, tier = 'fast' }) {
     throw new Error("Missing OpenRouter API Key for fallback routing.");
   }
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.openrouterApiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "Dhiman Sovereign"
-    },
-    body: JSON.stringify({
-      model: modelName,
-      messages: messages,
-      tools: tools
-    })
-  });
+  const callRouter = async (model) => {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${config.openrouterApiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Dhiman Sovereign"
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        tools: tools
+      })
+    });
 
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error?.message || `HTTP Request failed with status ${response.status}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error?.message || `HTTP Request failed with status ${response.status}`);
+    }
+
+    return payload.choices[0].message;
+  };
+
+  try {
+    return await callRouter(modelName);
+  } catch (err) {
+    if ((err.message.includes("No endpoints found") || err.message.toLowerCase().includes("endpoint")) && modelName !== 'google/gemini-2.5-flash-lite') {
+      console.warn(`[LLM ROUTER] Fallback triggered: Model ${modelName} failed, retrying with google/gemini-2.5-flash-lite`);
+      return await callRouter('google/gemini-2.5-flash-lite');
+    }
+    throw err;
   }
-
-  return payload.choices[0].message;
 }
 
 module.exports = {
