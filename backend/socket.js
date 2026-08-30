@@ -225,7 +225,7 @@ function registerSocketHandlers(io) {
 
         if (intent === 'CHAT') {
           const chatReply = await handleChatResponse(userInput, recentMessages);
-          await db.saveMessage(activeConversationId, 'assistant', { content: chatReply });
+          await db.saveMessage(activeConversationId, 'assistant', chatReply);
           socket.emit('state-change', { state: 'speaking' });
           socket.emit('dhiman-reply', { text: chatReply, conversationId: activeConversationId });
           return;
@@ -328,9 +328,7 @@ function registerSocketHandlers(io) {
         const naturalReply = formatResponse(updatedTask, steps);
 
         // Save assistant response to DB
-        await db.saveMessage(activeConversationId, 'assistant', {
-          content: naturalReply
-        });
+        await db.saveMessage(activeConversationId, 'assistant', naturalReply);
 
         socket.emit('state-change', { state: 'speaking' });
         socket.emit('dhiman-reply', { text: naturalReply, conversationId: activeConversationId });

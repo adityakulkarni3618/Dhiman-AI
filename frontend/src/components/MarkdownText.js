@@ -6,6 +6,10 @@ import React from 'react';
 export default function MarkdownText({ text = '' }) {
   if (!text) return null;
 
+  if (typeof text !== 'string') {
+    text = typeof text === 'object' && text !== null ? (text.content || text.text || JSON.stringify(text)) : String(text || '');
+  }
+
   // Split lines to identify block-level structures
   const lines = text.split('\n');
 
