@@ -126,7 +126,7 @@ async function runMultimodalTests() {
   console.log("\n🧪 Testing responseFormatter actions mapping...");
   const { formatResponse } = require('../agent/responseFormatter');
   
-  const mockTask = { goal: "Open VS Code", status: "COMPLETED", result: "" };
+  const mockTask = { goal: "Open VS Code", status: "COMPLETED", result: "VS Code is open." };
   const mockSteps = [
     { action: { tool: "application_launch" }, status: "COMPLETED", verified: true }
   ];
