@@ -94,7 +94,7 @@ async function handleChatResponse(userInput, history = []) {
   }
 
   // Local offline stubs for graceful degradation
-  return "I'm currently unable to answer general questions because my language model is unavailable. My local computer and automation tools are still available.";
+  return "I'm having trouble connecting to my cognitive model at the moment. However, my local automation tools are fully active! You can still ask me to perform tasks on your computer, like opening applications, checking files, or managing your notes.";
 }
 
 module.exports = {
