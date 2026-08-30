@@ -211,7 +211,8 @@ async function generateCompletion({ messages, tools, tier = 'fast' }) {
   try {
     return await callRouter(modelName);
   } catch (err) {
-    if ((err.message.includes("No endpoints found") || err.message.toLowerCase().includes("endpoint")) && modelName !== 'google/gemini-2.5-flash-lite') {
+    console.warn(`[LLM ROUTER] Model ${modelName} failed: ${err.message}. Triggering fallback...`);
+    if (modelName !== 'google/gemini-2.5-flash-lite') {
       console.warn(`[LLM ROUTER] Fallback triggered: Model ${modelName} failed, retrying with google/gemini-2.5-flash-lite`);
       return await callRouter('google/gemini-2.5-flash-lite');
     }
