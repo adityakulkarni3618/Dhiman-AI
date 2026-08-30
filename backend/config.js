@@ -8,6 +8,8 @@ const config = {
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/dhiman_ai',
+  localLlmUrl: process.env.LOCAL_LLM_URL || null,
+  localLlmModel: process.env.LOCAL_LLM_MODEL || 'llama3',
   githubToken: process.env.GITHUB_TOKEN || null,
   tavilyApiKey: process.env.TAVILY_API_KEY || null,
   functionizeClientId: process.env.FUNCTIONIZE_CLIENT_ID || null,
@@ -21,8 +23,9 @@ console.log("\n=========================================");
 console.log(" DHIMAN ENGINE STARTUP INITIALIZATION ");
 console.log("=========================================");
 console.log("LLM:");
-console.log(`  provider: ${config.anthropicApiKey ? 'Anthropic' : 'OpenRouter'}`);
-console.log(`  status: ${config.openrouterApiKey || config.anthropicApiKey ? '✅ READY' : '❌ UNCONFIGURED'}`);
+const defaultProvider = config.localLlmUrl ? 'Local / Ollama' : (config.anthropicApiKey ? 'Anthropic' : 'OpenRouter');
+console.log(`  provider: ${defaultProvider}`);
+console.log(`  status: ${config.openrouterApiKey || config.anthropicApiKey || config.localLlmUrl ? '✅ READY' : '❌ UNCONFIGURED'}`);
 console.log("\nMongoDB:");
 console.log(`  status: ${config.mongodbUri ? '✅ READY' : '❌ UNCONFIGURED'}`);
 console.log("\nBrowser:");

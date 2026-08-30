@@ -12,6 +12,14 @@ if (config.anthropicApiKey) {
   anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
 }
 
+let localLlm = null;
+if (config.localLlmUrl) {
+  localLlm = new OpenAI({
+    baseURL: config.localLlmUrl,
+    apiKey: 'local-dummy-key'
+  });
+}
+
 /**
  * Route completions to the best model depending on the requested tier.
  * Tiers:
@@ -24,7 +32,10 @@ async function generateCompletion({ messages, tools, tier = 'fast' }) {
   let provider = 'openrouter';
   let modelName = 'google/gemini-2.5-flash-lite';
 
-  if (tier === 'smart' || tier === 'coding') {
+  if (config.localLlmUrl && localLlm) {
+    provider = 'local';
+    modelName = config.localLlmModel || 'llama3';
+  } else if (tier === 'smart' || tier === 'coding') {
     if (config.anthropicApiKey && anthropic) {
       provider = 'anthropic';
       modelName = 'claude-3-5-sonnet-latest';
@@ -47,6 +58,7 @@ async function generateCompletion({ messages, tools, tier = 'fast' }) {
   }
 
   console.log(`[LLM ROUTER] Routing request using tier "${tier}" -> Provider: ${provider}, Model: ${modelName}`);
+
 
   if (provider === 'anthropic' && anthropic) {
     // Adapt tool formats from OpenAI/OpenRouter style to Anthropic style if tools are present
@@ -127,6 +139,25 @@ async function generateCompletion({ messages, tools, tier = 'fast' }) {
       content: textContent || null,
       tool_calls: toolCalls.length > 0 ? toolCalls : undefined
     };
+  }
+
+  if (provider === 'local' && localLlm) {
+    const formattedTools = tools ? tools.map(t => ({
+      type: 'function',
+      function: {
+        name: t.function.name,
+        description: t.function.description,
+        parameters: t.function.parameters
+      }
+    })) : undefined;
+
+    const response = await localLlm.chat.completions.create({
+      model: modelName,
+      messages: messages,
+      tools: formattedTools
+    });
+
+    return response.choices[0].message;
   }
 
   if (provider === 'openai' && openai) {
